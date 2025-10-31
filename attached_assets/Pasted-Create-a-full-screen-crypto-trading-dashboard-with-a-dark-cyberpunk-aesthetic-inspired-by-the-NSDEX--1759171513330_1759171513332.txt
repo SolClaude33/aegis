@@ -1,0 +1,111 @@
+Create a full-screen crypto trading dashboard with a dark cyberpunk aesthetic inspired by the NSDEX interface. The layout should be a complex multi-panel design with the following specifications:
+Overall Design:
+
+Dark navy/black background (#0a0a1a to #1a1a2e gradient)
+Neon blue accents (#00d4ff, #0099ff)
+Retro-futuristic terminal aesthetic with scan lines and CRT monitor effects
+Glowing borders and subtle animations on all panels
+Matrix-style rain effect or particle animation in the background
+
+Layout Structure (CSS Grid):
+Header (full width)
+Left Sidebar (20%) | Main Content (60%) | Right Sidebar (20%)
+Footer (full width)
+Components to Include:
+
+Header Bar:
+
+Retro terminal style with "Welcome to my Cyber realm" text
+ASCII art decorative borders
+Glowing blue text effects
+
+
+Left Sidebar:
+
+Navigation panel with glowing hover effects
+Status indicators with pulsing animations
+Live market ticker with scrolling text
+Meme corner with rotating images (placeholder slots for crypto memes)
+
+
+Main Content Area:
+
+Large trading chart with animated candlesticks
+Real-time price display with number animations
+Buy/Sell buttons with neon glow effects
+Market sentiment indicator with animated gauge
+Latest updates feed with typewriter text effect
+
+
+Right Sidebar:
+
+User profile card with avatar placeholder
+Portfolio pie chart (animated on load)
+Top traders leaderboard with rank animations
+Social feed with sliding panel transitions
+
+
+Special Effects:
+
+Scanline overlay effect across entire screen
+Glitch text animations on hover
+Neon glow on all interactive elements
+Particle effects following mouse movement
+Sound effect triggers on button clicks (optional)
+
+
+
+Typography:
+
+Primary font: "Orbitron" or "Share Tech Mono" for headers
+Secondary font: "Roboto Mono" for body text
+All text should have subtle text-shadow glow effects
+
+Color Palette:
+
+Background: #0a0a1a, #1a1a2e
+Primary neon: #00d4ff, #0099ff
+Success/Buy: #00ff88
+Danger/Sell: #ff0044
+Text: #ffffff with 0.9 opacity
+Accent gold: #ffd700
+
+Responsive Design:
+
+On mobile: Stack all panels vertically
+Maintain aspect ratios for charts and images
+Hide decorative elements on small screens
+Keep core functionality accessible
+
+Animation Requirements:
+
+CSS animations for all hover states
+Smooth transitions (0.3s ease)
+Pulsing effects on important elements
+Loading animations for data sections
+Parallax scrolling effects
+
+Interactive Elements:
+
+All buttons should have press animations
+Dropdown menus with slide effects
+Modal popups with blur background
+Draggable panels (if possible)
+Keyboard shortcuts display
+
+Performance Notes:
+
+Use CSS transforms for animations (not position changes)
+Implement lazy loading for images
+Optimize all animations for 60fps
+Use CSS Grid and Flexbox for layout
+
+Additional Features:
+
+Dark mode is the only mode (no light theme)
+Custom scrollbars with neon styling
+Loading states with skeleton screens
+Error states with glitch effects
+Success states with particle explosions
+
+Make sure every element feels alive and interactive. The goal is to create an immersive trading experience that makes users feel like they're in a high-tech command center. Use placeholder content for all text, charts, and data - focus on the visual design and interactive experience.

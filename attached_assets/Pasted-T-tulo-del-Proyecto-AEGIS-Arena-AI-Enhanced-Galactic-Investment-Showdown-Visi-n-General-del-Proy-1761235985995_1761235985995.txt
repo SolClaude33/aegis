@@ -1,0 +1,148 @@
+Título del Proyecto: AEGIS Arena (AI-Enhanced Galactic Investment Showdown)
+
+Visión General del Proyecto:
+
+Crear una aplicación web en Replit con React que sirva como una plataforma de "vibe coding" para visualizar una competición de trading en tiempo real entre múltiples agentes de IA autónomos. Cada agente operará de forma independiente en el exchange descentralizado (DEX) Aster_DEX, con todas las acciones de trading ejecutadas y verificables on-chain para una transparencia total. La estética debe ser moderna, oscura y minimalista, inspirada en interfaces de ciencia ficción y terminales de codificación retro.
+
+1. Arquitectura y Stack Tecnológico
+Plataforma de Despliegue: Replit.
+
+Frontend:
+
+Framework: React con Next.js (utilizando el App Router).
+
+Estilo: Tailwind CSS para un estilizado rápido y moderno.
+
+Gráficos y Visualizaciones: Recharts o D3.js para los gráficos de rendimiento en tiempo real.
+
+Interacción Web3: ethers.js o viem para conectar con la blockchain y mostrar datos de transacciones.
+
+Backend:
+
+Entorno: Node.js (integrado con las API routes de Next.js).
+
+Orquestación de Agentes: LangChain o LangGraph para definir y gestionar el ciclo de vida y la lógica de cada agente de IA.
+
+Interacción con Blockchain: ethers.js para construir, firmar y enviar transacciones a la red compatible con EVM de Aster_DEX (ej. BNB Chain).   
+
+Base de Datos:
+
+Servicio: Supabase (PostgreSQL) para persistir el historial de trades, el rendimiento de los agentes y las configuraciones.
+
+Punto de Partida: Se recomienda utilizar el repositorio de GitHub asteraiagent como base para la integración con la API de Aster_DEX, pero adaptándolo para soportar múltiples instancias de agentes competidores en lugar de un solo agente de chat.   
+
+2. Especificaciones del Frontend (UI/UX - "Vibe Coding")
+El diseño debe ser inmersivo, con un tema oscuro predominante, tipografía monoespaciada (como Fira Code o Source Code Pro), y sutiles efectos de brillo o "glow" en los elementos activos.
+
+Componente Principal: El Leaderboard (Página de Inicio)
+
+Inspirado en la interfaz de Alpha Arena, debe ser el centro de la aplicación.
+
+Gráfico de Rendimiento en Tiempo Real:
+
+Un gráfico de líneas grande y prominente que muestre la evolución del "Valor Total de la Cuenta" (Total Account Value) para cada IA competidora a lo largo del tiempo.
+
+Cada IA debe tener una línea de color distintivo.
+
+Debe haber una leyenda interactiva para mostrar/ocultar las líneas de cada agente.
+
+Al pasar el cursor sobre el gráfico, un tooltip debe mostrar los valores exactos de cada agente en ese punto del tiempo.
+
+Panel de "Los Contendientes":
+
+Una lista o cuadrícula que presente a cada agente de IA (ej. DeepSeek, Grok 4, Claude 3.5, GPT-5, Llama 3.1, Fin-R1).
+
+Cada contendiente debe mostrar:
+
+Su nombre y un avatar o logo único.
+
+PnL (Profit and Loss) total y porcentual, con colores (verde para ganancias, rojo para pérdidas).
+
+Capital Actual (ej. $12,533).
+
+Ratio de Sharpe para medir el rendimiento ajustado al riesgo.   
+
+Número total de operaciones.
+
+Panel de "Reglas de la Competición":
+
+Una sección estática que muestre claramente las reglas, similar a Alpha Arena:
+
+Capital Inicial: (ej. $10,000 USDC por agente).
+
+Mercados: (ej. Perpetuos de BTC, ETH, SOL en Aster_DEX).
+
+Objetivo: Maximizar el rendimiento ajustado al riesgo (Ratio de Sharpe).
+
+Transparencia: "Todas las operaciones son ejecutadas on-chain en Aster_DEX y son públicamente verificables".
+
+Autonomía: "Cada agente opera de forma 100% autónoma sin intervención humana".
+
+Feed de Actividad Global (Estilo Terminal):
+
+Un componente que simule una terminal de codificación, mostrando un feed en vivo de las acciones más recientes de todos los agentes (ej. PLACED BUY ORDER: 0.5 ETH-PERP @ $3050, [Grok-4] CLOSED POSITION: 1.0 SOL-PERP with +$150 PnL).
+
+Cada entrada debe tener un timestamp y un enlace directo al hash de la transacción en un explorador de bloques (ej. BscScan).
+
+Página de Detalles del Agente (Al hacer clic en un contendiente)
+
+Perfil del Agente: Nombre, avatar y una breve descripción de su "estilo" de trading.
+
+Gráfico de Rendimiento Individual: Un gráfico detallado del PnL y el valor de la cuenta a lo largo del tiempo para ese agente específico.
+
+Posiciones Actuales: Una tabla clara que muestre todas las posiciones abiertas del agente, incluyendo:
+
+Activo (ej. BTC-PERP).
+
+Tamaño de la posición.
+
+Precio de entrada.
+
+PnL no realizado.
+
+Nivel de apalancamiento.
+
+Historial de Trades: Una tabla paginada con todas las operaciones cerradas, mostrando PnL realizado, duración de la operación y un enlace al hash de la transacción on-chain.
+
+3. Especificaciones del Backend (Lógica de los Agentes)
+Arquitectura de Agentes Múltiples:
+
+El sistema debe ser capaz de ejecutar instancias aisladas y concurrentes de un agente de trading unificado. Cada instancia representa a un competidor de IA.
+
+Cada agente debe tener su propia billetera con una clave privada única, su propio capital inicial y su propio estado (posiciones, historial).
+
+Utiliza Replit Secrets para almacenar de forma segura las claves de API (OpenAI, Anthropic, etc.) y las claves privadas de las billeteras de cada agente. Bajo ninguna circunstancia deben estar hardcodeadas en el código.
+
+Lógica de Trading y Ejecución On-Chain:
+
+Conexión a Aster_DEX: Cada agente debe conectarse a la API de Aster_DEX para obtener datos de mercado en tiempo real. Utiliza las herramientas públicas definidas en asteraiagent: get_markets, get_ticker, get_orderbook, get_klines.   
+
+Toma de Decisiones: El "cerebro" de cada agente será un LLM diferente. El agente debe analizar los datos de mercado y decidir una acción (comprar, vender, mantener).
+
+Ejecución de Órdenes (CRÍTICO):
+
+Las decisiones de trading deben traducirse en transacciones on-chain.
+
+El backend debe usar ethers.js para:
+
+Construir la transacción: Crear la llamada a la función del contrato inteligente de Aster_DEX para place_order.
+
+Firmar la transacción: Cargar la clave privada del agente correspondiente desde Replit Secrets y firmar la transacción de forma local en el backend. La clave privada nunca debe exponerse al frontend.
+
+Transmitir la transacción: Enviar la transacción firmada (sendRawTransaction) a un nodo RPC de la red de Aster_DEX (ej. BNB Chain).   
+
+El hash de la transacción resultante debe ser capturado y almacenado en Supabase junto con los detalles de la operación.
+
+Gestión de Estado: Cada agente debe poder consultar su estado actual utilizando las herramientas firmadas de Aster_DEX como get_balances y get_positions.   
+
+Persistencia y Monitoreo:
+
+Configura tablas en Supabase para registrar:
+
+agents (id, nombre, modelo_llm, direccion_billetera).
+
+trades (id_agente, activo, lado, tamaño, precio_entrada, precio_salida, pnl, hash_transaccion).
+
+performance_snapshots (id_agente, timestamp, valor_cuenta).
+
+El frontend consultará una API route en Next.js que, a su vez, obtendrá estos datos de Supabase para poblar el leaderboard y los gráficos.
