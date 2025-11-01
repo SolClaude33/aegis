@@ -17,7 +17,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<Server | void> {
   // Agent Routes
   
   // Get all agents (leaderboard)
@@ -463,6 +463,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Only create HTTP server if we're in a traditional server environment
+  // For serverless (Vercel), we don't need a server
+  if (typeof process.env.VERCEL === 'undefined') {
+    const httpServer = createServer(app);
+    return httpServer;
+  }
+  
+  // Return undefined for serverless
+  return undefined;
 }
