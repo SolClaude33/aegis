@@ -144,126 +144,13 @@ La aplicación estará disponible en `http://localhost:5000`
 
 ## 🌐 Deployment en Vercel
 
-### ⚠️ IMPORTANTE: Configuración de Build
+### ✅ Configuración Lista
 
-Este proyecto requiere configuración especial porque combina frontend y backend. Vercel usará el archivo `vercel.json` incluido.
+Este proyecto está configurado para Vercel serverless con soporte para trading engine automático.
 
-### Preparación
+**Ver guía completa:** [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
 
-1. **Verificar que el build funciona localmente**
-```bash
-npm run build
-```
-
-2. **Verificar estructura de dist/**
-Después del build deberías tener:
-```
-dist/
-├── index.js          # Backend Express bundled
-├── public/           # Frontend static files
-│   ├── index.html
-│   └── assets/
-└── ...otros archivos
-```
-
-### Variables de Entorno en Vercel
-
-Ve a **Settings** → **Environment Variables** en el dashboard de Vercel y agrega TODAS estas variables:
-
-#### Base de Datos (REQUERIDO)
-```
-DATABASE_URL=postgresql://user:password@host:5432/dbname
-```
-
-#### LLM API Keys (Recomendado para que los agentes funcionen)
-```
-LLM_DEEPSEEK_API_KEY=tu_key_aqui
-LLM_GPT5_API_KEY=tu_key_aqui
-LLM_CLAUDE35_API_KEY=tu_key_aqui
-LLM_GROK4_API_KEY=tu_key_aqui
-LLM_LLAMA31_API_KEY=tu_key_aqui
-LLM_GEMINI2_API_KEY=tu_key_aqui
-```
-
-#### AsterDex Trading (OPCIONAL - Solo si quieres trading real)
-```
-# Opción 1: Usa la MISMA cuenta para todos (testing)
-AGENT_DEEPSEEK_API_KEY=mi_asterdex_key
-AGENT_DEEPSEEK_API_SECRET=mi_asterdex_secret
-# ... repetir las mismas credenciales para todos los agentes
-
-# Opción 2: Cuentas separadas (competencia real)
-# Cada agente tiene sus propias credenciales
-```
-
-#### Otros
-```
-BIRDEYE_API_KEY=tu_key_aqui
-```
-
-### Desplegar en Vercel
-
-#### Paso 1: Push a GitHub
-```bash
-git add .
-git commit -m "Deploy to Vercel"
-git push origin main
-```
-
-#### Paso 2: Importar Proyecto en Vercel
-1. Ve a [vercel.com](https://vercel.com)
-2. Click en **"Add New Project"**
-3. Importa el repositorio de GitHub: `SolClaude33/aegis`
-4. Vercel detectará `vercel.json` automáticamente
-
-#### Paso 3: Configurar
-- **Framework Preset**: Other
-- **Root Directory**: (vacío, raíz del repo)
-- **Build Command**: `npm run build`
-- **Output Directory**: (vacío, ya configurado en vercel.json)
-- **Install Command**: `npm install`
-
-#### Paso 4: Agregar Variables de Entorno
-Antes de hacer Deploy, agrega TODAS las variables de entorno listadas arriba en la sección de Environment Variables.
-
-#### Paso 5: Deploy
-Click en **"Deploy"** y espera a que termine el proceso (puede tomar 3-5 minutos).
-
-### ✅ Verificar Deployment
-
-Una vez desplegado:
-1. Abre la URL proporcionada por Vercel
-2. Verifica que la página carga correctamente
-3. Navega a `/leaderboard` y verifica que los 6 agentes aparecen
-4. Verifica que los gráficos se renderizan
-5. Haz click en un agente para ver detalles
-6. Verifica que la API funciona: `https://tu-url.vercel.app/api/agents`
-
-### 🔧 Troubleshooting
-
-**Error: "Cannot find module"**
-- Verifica que todas las dependencias están en `package.json`
-- Revisa los logs de build en Vercel
-
-**Error: "Database connection failed"**
-- Verifica que `DATABASE_URL` está configurada correctamente
-- Asegúrate de que la URL de Neon/PostgreSQL es accesible desde Vercel
-
-**Error: "Port already in use"**
-- Vercel maneja el puerto automáticamente, no configures PORT manualmente
-
-**Build fails**
-- Verifica los logs en Vercel dashboard
-- Prueba el build localmente con `npm run build`
-- Asegúrate de que `vercel.json` está en la raíz del proyecto
-
-### 📝 Notas Importantes
-
-- ⏱️ El primer deploy puede tardar más porque Vercel necesita compilar todo
-- 🔄 Cada push a `main` triggera un nuevo deploy automáticamente
-- 💰 Monitorea tus costos de API keys (especialmente LLM calls)
-- 🗄️ Usa Neon serverless PostgreSQL o cualquier PostgreSQL compatible
-- 🔒 No commitees `.env` ni keys reales al repo
+**Variables de entorno necesarias:** [ENV_SETUP.md](./ENV_SETUP.md)
 
 ## 📝 Scripts Disponibles
 
