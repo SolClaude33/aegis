@@ -9,9 +9,9 @@ function initializeApp(): Promise<void> {
   if (!initPromise) {
     initPromise = (async () => {
       const express = await import('express');
-      const { registerRoutes } = await import('../server/routes');
-      const { serveStatic } = await import('../server/vite');
-      const { seedDatabase } = await import('../server/seed');
+      const { registerRoutes } = await import('./server/routes');
+      const { serveStatic } = await import('./server/vite');
+      const { seedDatabase } = await import('./server/seed');
       
       // Initialize Express app
       app = express.default();
