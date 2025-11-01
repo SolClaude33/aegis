@@ -128,6 +128,9 @@ export class MemStorage implements IStorage {
       id,
       ...insertTrade,
       leverage: insertTrade.leverage ?? 1,
+      strategy: insertTrade.strategy ?? null,
+      llmReasoning: insertTrade.llmReasoning ?? null,
+      llmConfidence: insertTrade.llmConfidence ?? null,
       closedAt: now,
     };
     this.trades.set(id, trade);
@@ -160,6 +163,9 @@ export class MemStorage implements IStorage {
       leverage: insertPosition.leverage ?? 1,
       unrealizedPnL: insertPosition.unrealizedPnL ?? "0",
       unrealizedPnLPercentage: insertPosition.unrealizedPnLPercentage ?? "0",
+      strategy: insertPosition.strategy ?? null,
+      llmReasoning: insertPosition.llmReasoning ?? null,
+      llmConfidence: insertPosition.llmConfidence ?? null,
       openedAt: now,
     };
     this.positions.set(id, position);
@@ -228,6 +234,7 @@ export class MemStorage implements IStorage {
       id,
       ...insertEvent,
       asset: insertEvent.asset ?? null,
+      strategy: insertEvent.strategy ?? null,
       txHash: insertEvent.txHash ?? null,
       timestamp: now,
     };
