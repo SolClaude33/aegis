@@ -127,6 +127,11 @@ export class MemStorage implements IStorage {
     const trade: Trade = {
       id,
       ...insertTrade,
+      strategy: insertTrade.strategy ?? null,
+      llmReasoning: insertTrade.llmReasoning ?? null,
+      llmConfidence: insertTrade.llmConfidence ?? null,
+      asset: insertTrade.asset ?? null,
+      openTxHash: insertTrade.openTxHash ?? null,
       leverage: insertTrade.leverage ?? 1,
       closedAt: now,
     };
@@ -157,6 +162,10 @@ export class MemStorage implements IStorage {
     const position: Position = {
       id,
       ...insertPosition,
+      strategy: insertPosition.strategy ?? null,
+      llmReasoning: insertPosition.llmReasoning ?? null,
+      llmConfidence: insertPosition.llmConfidence ?? null,
+      openTxHash: insertPosition.openTxHash ?? null,
       leverage: insertPosition.leverage ?? 1,
       unrealizedPnL: insertPosition.unrealizedPnL ?? "0",
       unrealizedPnLPercentage: insertPosition.unrealizedPnLPercentage ?? "0",
@@ -227,6 +236,7 @@ export class MemStorage implements IStorage {
     const event: ActivityEvent = {
       id,
       ...insertEvent,
+      strategy: insertEvent.strategy ?? null,
       asset: insertEvent.asset ?? null,
       txHash: insertEvent.txHash ?? null,
       timestamp: now,
