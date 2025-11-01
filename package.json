@@ -10,9 +10,6 @@
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
-  "vercel": {
-    "version": 2
-  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
     "@google/generative-ai": "^0.24.1",
