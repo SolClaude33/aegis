@@ -6,11 +6,17 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index"
     },
     {
       "source": "/(.*)",
-      "destination": "/api"
+      "destination": "/api/index"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/trading-cycle",
+      "schedule": "*/2 * * * *"
     }
   ]
 }
