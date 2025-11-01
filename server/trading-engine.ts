@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots } from "@shared/schema";
-import { AsterDexClient, createAsterDexClient } from "./asterdex-client";
+import { AsterDexClient } from "./asterdex-client";
 import { type MarketData } from "./trading-strategies";
 import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients";
 import { tradingValidator, type ValidationContext } from "./trading-validators";
@@ -43,7 +43,11 @@ export class TradingEngine {
         return null;
       }
 
-      const client = createAsterDexClient(apiKey, apiSecret);
+      const client = new AsterDexClient({
+        apiKey,
+        apiSecret,
+        baseURL: "https://fapi.asterdex.com",
+      });
       this.agentClients.set(agent.id, client);
     }
 
@@ -350,7 +354,7 @@ export class TradingEngine {
       DOGE: "DOGEUSDT",
     };
 
-    const asterdexSymbol = symbolMap[asset];
+    const asterdexSymbol = symbolMap[asset as SupportedCrypto];
     const marketInfo = marketData.find((m) => m.symbol === asset);
     const marketPrice = marketInfo?.currentPrice || 0;
 
@@ -545,6 +549,18 @@ export class TradingEngine {
     try {
       // Get agent's individual AsterDex client
       const agentClient = this.getAgentClient(agent);
+      
+      if (!agentClient) {
+        console.log(`⚠️  ${agent.name} cannot execute trade - no AsterDex credentials configured`);
+        await db
+          .update(asterdexOrders)
+          .set({
+            status: "REJECTED",
+            updatedAt: new Date(),
+          })
+          .where(eq(asterdexOrders.id, order.id));
+        return;
+      }
 
       // Execute order on AsterDex with agent's credentials
       const orderResponse = await agentClient.createOrder({
