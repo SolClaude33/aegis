@@ -10,7 +10,7 @@ function initializeApp(): Promise<void> {
     initPromise = (async () => {
       const express = await import('express');
       const { registerRoutes } = await import('./lib/routes.js');
-      const { serveStatic } = await import('./lib/vite.js');
+      const { serveStatic } = await import('./lib/serve-static.js');
       const { seedDatabase } = await import('./lib/seed.js');
       
       // Initialize Express app
