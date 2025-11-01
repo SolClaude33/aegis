@@ -83,6 +83,9 @@ export class TradingEngine {
         }
       }
 
+      // Update agent balances from actual trades
+      await this.updateAgentBalances();
+
       console.log("✅ Trading Cycle Complete");
     } catch (error) {
       console.error("Trading cycle error:", error);
@@ -621,24 +624,40 @@ export class TradingEngine {
 
       for (const agent of allAgents) {
         try {
-          // Get all filled orders for this agent
-          const orders = await db
-            .select()
-            .from(asterdexOrders)
-            .where(eq(asterdexOrders.agentId, agent.id));
-
-          // Calculate current balance based on executed trades
+          const agentClient = this.getAgentClient(agent);
           let currentBalance = parseFloat(agent.initialCapital);
-          
-          // This is a simplified calculation - in production you'd track actual positions
-          for (const order of orders) {
-            if (order.status === "FILLED" && order.avgFilledPrice && order.filledQuantity) {
-              const tradeValue = parseFloat(order.avgFilledPrice) * parseFloat(order.filledQuantity);
-              
-              if (order.side === "BUY") {
-                currentBalance -= tradeValue;
-              } else {
-                currentBalance += tradeValue;
+
+          // Try to get real balance from AsterDex
+          if (agentClient) {
+            try {
+              const balances = await agentClient.getAccount();
+              // Find USDT or USDC balance (the quote currency)
+              const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
+              if (usdtBalance && parseFloat(usdtBalance.free) > 0) {
+                currentBalance = parseFloat(usdtBalance.free);
+                console.log(`💰 ${agent.name}: Balance updated from AsterDex: $${currentBalance.toFixed(2)}`);
+              }
+            } catch (error) {
+              console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex, using calculated balance`);
+            }
+          }
+
+          // Fallback: Calculate current balance based on executed trades
+          if (!agentClient || currentBalance === parseFloat(agent.initialCapital)) {
+            const orders = await db
+              .select()
+              .from(asterdexOrders)
+              .where(eq(asterdexOrders.agentId, agent.id));
+
+            for (const order of orders) {
+              if (order.status === "FILLED" && order.avgFilledPrice && order.filledQuantity) {
+                const tradeValue = parseFloat(order.avgFilledPrice) * parseFloat(order.filledQuantity);
+                
+                if (order.side === "BUY") {
+                  currentBalance -= tradeValue;
+                } else {
+                  currentBalance += tradeValue;
+                }
               }
             }
           }
