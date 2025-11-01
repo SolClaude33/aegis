@@ -633,7 +633,7 @@ export class TradingEngine {
               const balances = await agentClient.getAccount();
               // Find USDT or USDC balance (the quote currency)
               const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
-              if (usdtBalance && parseFloat(usdtBalance.free) > 0) {
+              if (usdtBalance && parseFloat(usdtBalance.free) >= 0) {
                 currentBalance = parseFloat(usdtBalance.free);
                 console.log(`💰 ${agent.name}: Balance updated from AsterDex: $${currentBalance.toFixed(2)}`);
               }
