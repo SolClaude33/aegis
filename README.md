@@ -142,17 +142,26 @@ npm run dev
 
 La aplicación estará disponible en `http://localhost:5000`
 
-## 🌐 Deployment en Vercel
+## 🌐 Deployment
 
-### ✅ Configuración Lista
+### ⚠️ IMPORTANTE: Vercel vs Railway
 
-Este proyecto está configurado para Vercel serverless con soporte para trading engine automático.
+**AEGIS Arena** es una app con trading engine 24/7, **NO compatible con Vercel serverless**.
 
-**Ver guía completa:** [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+### ⭐ RECOMENDADO: Railway
 
-**Variables de entorno necesarias:** [ENV_SETUP.md](./ENV_SETUP.md)
+**Railway** es perfecto para este proyecto:
+- ✅ PostgreSQL incluido
+- ✅ Trading engine 24/7 sin límites
+- ✅ Sin refactorizar código
+- ✅ Free tier generoso
 
-**¿Cómo obtener DATABASE_URL?** → [GET_DATABASE_URL.md](./GET_DATABASE_URL.md)
+**[→ DEPLOYAR AHORA (Railway)](./DEPLOY_AHORA.md)**
+
+**Guías completas:**
+- [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) - Paso a paso
+- [ENV_SETUP.md](./ENV_SETUP.md) - Variables de entorno
+- [ALTERNATIVE_DEPLOYMENT.md](./ALTERNATIVE_DEPLOYMENT.md) - Otras opciones
 
 ## 📝 Scripts Disponibles
 
