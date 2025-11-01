@@ -1,29 +1,26 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
-
 // Lazy initialization to avoid throwing during module import
-let pool: Pool | null = null;
+let client: postgres.Sql | null = null;
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
-function getPool(): Pool {
-  if (!pool) {
+function getClient(): postgres.Sql {
+  if (!client) {
     if (!process.env.DATABASE_URL) {
       throw new Error(
         "DATABASE_URL must be set. Did you forget to provision a database?"
       );
     }
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    client = postgres(process.env.DATABASE_URL, { max: 10 });
   }
-  return pool;
+  return client;
 }
 
 export function getDb() {
   if (!dbInstance) {
-    dbInstance = drizzle({ client: getPool(), schema });
+    dbInstance = drizzle({ client: getClient(), schema });
   }
   return dbInstance;
 }
