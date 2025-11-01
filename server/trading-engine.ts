@@ -631,20 +631,16 @@ export class TradingEngine {
           if (agentClient) {
             try {
               const balances = await agentClient.getAccount();
-              console.log(`🔍 ${agent.name}: AsterDex balances`, balances);
               // Find USDT or USDC balance (the quote currency)
               const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
-              console.log(`🔍 ${agent.name}: USDT/USDC balance`, usdtBalance);
               // AsterDex returns availableBalance or walletBalance, not free
               const balanceValue = usdtBalance?.availableBalance || usdtBalance?.walletBalance || usdtBalance?.free || "0";
               if (usdtBalance && parseFloat(balanceValue) >= 0) {
                 currentBalance = parseFloat(balanceValue);
                 console.log(`💰 ${agent.name}: Balance updated from AsterDex: $${currentBalance.toFixed(2)}`);
-              } else {
-                console.log(`⚠️  ${agent.name}: No USDT/USDC balance found or balance is negative`);
               }
             } catch (error) {
-              console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex:`, error);
+              console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
             }
           }
 
