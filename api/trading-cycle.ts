@@ -11,13 +11,11 @@ export default async function handler(
     
     // Run a single trading cycle
     console.log('⚡ Running scheduled trading cycle...');
-    
-    // Since we can't have long-running processes, we just run one cycle
-    // The engine will check all agents and execute their decisions
+    await engine.runSingleCycle();
     
     return res.status(200).json({ 
       success: true,
-      message: 'Trading cycle triggered',
+      message: 'Trading cycle completed',
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {

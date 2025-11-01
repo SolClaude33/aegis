@@ -33,6 +33,11 @@ export class TradingEngine {
     console.log("🛑 Trading Engine Stopped");
   }
 
+  // Public method to run a single trading cycle (for serverless)
+  async runSingleCycle() {
+    await this.runTradingCycle();
+  }
+
   private getAgentClient(agent: any): AsterDexClient | null {
     if (!this.agentClients.has(agent.id)) {
       const apiKey = process.env[agent.apiKeyRef];
