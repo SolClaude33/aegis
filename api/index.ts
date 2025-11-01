@@ -1,20 +1,37 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import express from 'express';
-import { registerRoutes } from '../server/routes';
-import { serveStatic } from '../server/vite';
-import { seedDatabase } from '../server/seed';
 
-// Initialize Express app once (Vercel caches this)
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Cache the Express app instance
+let app: any = null;
 
-// Seed database and setup routes
-(async () => {
-  await seedDatabase();
-  await registerRoutes(app);
-  serveStatic(app);
-})();
+async function getExpressApp() {
+  if (!app) {
+    const express = await import('express');
+    const { registerRoutes } = await import('../server/routes');
+    const { serveStatic } = await import('../server/vite');
+    const { seedDatabase } = await import('../server/seed');
+    
+    // Initialize Express app
+    app = express.default();
+    app.use(express.default.json());
+    app.use(express.default.urlencoded({ extended: false }));
+    
+    // Seed database
+    await seedDatabase();
+    
+    // Register routes
+    await registerRoutes(app);
+    
+    // Serve static files
+    serveStatic(app);
+    
+    console.log('✅ Express app initialized for Vercel serverless');
+  }
+  
+  return app;
+}
 
-export default app;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const expressApp = await getExpressApp();
+  return expressApp(req, res);
+}
 
