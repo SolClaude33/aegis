@@ -6,7 +6,7 @@ export default async function handler(
 ) {
   try {
     // Import trading engine dynamically
-    const { getTradingEngine } = await import('./lib/trading-engine');
+    const { getTradingEngine } = await import('./lib/trading-engine.js');
     const engine = getTradingEngine();
     
     // Run a single trading cycle
