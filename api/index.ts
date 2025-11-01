@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import express from 'express';
-import { registerRoutes } from '../server/routes.js';
-import { serveStatic } from '../server/vite.js';
-import { seedDatabase } from '../server/seed.js';
+import { registerRoutes } from '../server/routes';
+import { serveStatic } from '../server/vite';
+import { seedDatabase } from '../server/seed';
 
 // Initialize Express app once (Vercel caches this)
 const app = express();
