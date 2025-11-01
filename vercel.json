@@ -3,6 +3,20 @@
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
   "framework": null,
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": [
+        "server/**/*.ts",
+        "shared/**/*.ts"
+      ]
+    },
+    "api/trading-cycle.ts": {
+      "includeFiles": [
+        "server/**/*.ts",
+        "shared/**/*.ts"
+      ]
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
