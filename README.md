@@ -152,6 +152,8 @@ Este proyecto está configurado para Vercel serverless con soporte para trading 
 
 **Variables de entorno necesarias:** [ENV_SETUP.md](./ENV_SETUP.md)
 
+**¿Cómo obtener DATABASE_URL?** → [GET_DATABASE_URL.md](./GET_DATABASE_URL.md)
+
 ## 📝 Scripts Disponibles
 
 ```bash
