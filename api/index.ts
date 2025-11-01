@@ -47,7 +47,16 @@ async function getExpressApp() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const expressApp = await getExpressApp();
-  return expressApp(req, res);
+  try {
+    const expressApp = await getExpressApp();
+    return expressApp(req, res);
+  } catch (error: any) {
+    console.error('❌ Handler error:', error);
+    return res.status(500).json({ 
+      error: 'Server initialization failed',
+      message: error.message || 'Unknown error',
+      hint: 'Check server logs for details'
+    });
+  }
 }
 
