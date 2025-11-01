@@ -1,9 +1,9 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots } from "./schema.js";
-import { AsterDexClient } from "./asterdex-client";
-import { type MarketData } from "./trading-strategies";
-import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients";
-import { tradingValidator, type ValidationContext } from "./trading-validators";
+import { AsterDexClient } from "./asterdex-client.js";
+import { type MarketData } from "./trading-strategies.js";
+import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients.js";
+import { tradingValidator, type ValidationContext } from "./trading-validators.js";
 import { eq } from "drizzle-orm";
 
 export class TradingEngine {

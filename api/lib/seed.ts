@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import { agents, agentStrategies, performanceSnapshots, activityEvents } from "./schema.js";
 import { eq, sql } from "drizzle-orm";
 
