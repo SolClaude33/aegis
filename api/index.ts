@@ -12,11 +12,19 @@ function initializeApp(): Promise<void> {
       const { registerRoutes } = await import('./lib/routes.js');
       const { serveStatic } = await import('./lib/serve-static.js');
       const { seedDatabase } = await import('./lib/seed.js');
+      const { initializeDatabase } = await import('./lib/init-db.js');
       
       // Initialize Express app
       app = express.default();
       app.use(express.default.json());
       app.use(express.default.urlencoded({ extended: false }));
+      
+      // Initialize database tables (with error handling)
+      try {
+        await initializeDatabase();
+      } catch (error) {
+        console.error('⚠️  Database initialization failed:', error);
+      }
       
       // Seed database (with error handling)
       try {
