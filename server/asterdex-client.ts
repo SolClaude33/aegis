@@ -17,8 +17,11 @@ interface OrderParams {
 
 interface AccountBalance {
   asset: string;
-  free: string;
-  locked: string;
+  availableBalance?: string; // AsterDex uses availableBalance
+  walletBalance?: string;
+  free?: string; // Binance-style compatibility
+  locked?: string; // Binance-style compatibility
+  [key: string]: any; // Allow additional fields
 }
 
 interface OrderResponse {
