@@ -431,7 +431,16 @@ export class OpenAICompatibleClient implements LLMClient {
   private providerName: string;
 
   constructor(apiKey: string, baseURL: string, model: string, providerName: string) {
-    this.client = new OpenAI({ apiKey, baseURL });
+    // Qwen/DashScope uses standard OpenAI-compatible format
+    // API key should be in format: sk-xxxxx or just the key string
+    const normalizedKey = apiKey.trim();
+    
+    this.client = new OpenAI({ 
+      apiKey: normalizedKey, 
+      baseURL,
+      // For Qwen/DashScope, use international endpoint if outside mainland China
+      // The SDK automatically handles Authorization header with Bearer token
+    });
     this.model = model;
     this.providerName = providerName;
   }
@@ -460,8 +469,16 @@ export class OpenAICompatibleClient implements LLMClient {
       if (!content) throw new Error(`No response from ${this.providerName}`);
 
       return this.parseResponse(content);
-    } catch (error) {
-      console.error(`[${this.providerName}] Error analyzing market:`, error);
+    } catch (error: any) {
+      // Better error logging for debugging
+      if (error?.status === 401 || error?.message?.includes('401') || error?.message?.includes('Incorrect API key')) {
+        console.error(`[${this.providerName}] Authentication failed: Check API key in environment variable`);
+        if (this.providerName === 'Qwen') {
+          console.error(`[Qwen] Make sure LLM_LLAMA31_API_KEY is set correctly in Railway`);
+          console.error(`[Qwen] Get API key from: https://dashscope.console.aliyun.com/`);
+        }
+      }
+      console.error(`[${this.providerName}] Error analyzing market:`, error?.message || error);
       return this.getDefaultDecision(`Error calling ${this.providerName} API`);
     }
   }
@@ -567,7 +584,8 @@ export function getLLMClientForAgent(agentName: string): LLMClient | null {
     "Llama-3.1": { 
       keyVar: "LLM_LLAMA31_API_KEY", 
       provider: "Qwen",
-      baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      // Use international endpoint for users outside mainland China
+      baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
       model: "qwen-max",
     },
     "Gemini-2": { 
