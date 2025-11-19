@@ -4,7 +4,7 @@ import { AsterDexClient } from "./asterdex-client";
 import { type MarketData } from "./trading-strategies";
 import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients";
 import { tradingValidator, type ValidationContext } from "./trading-validators";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export class TradingEngine {
   private isRunning: boolean = false;
@@ -983,14 +983,29 @@ export class TradingEngine {
             }
           }
 
-          // Create performance snapshot
-          await db.insert(performanceSnapshots).values({
-            agentId: agent.id,
-            accountValue: currentBalance.toFixed(2),
-            totalPnL: pnl.toFixed(2),
-            totalPnLPercentage: pnlPercentage.toFixed(2),
-            openPositions: openPositionsCount,
-          });
+          // Only create performance snapshot every 10 minutes
+          // This prevents too many snapshots and keeps the chart clean
+          const lastSnapshot = await db
+            .select()
+            .from(performanceSnapshots)
+            .where(eq(performanceSnapshots.agentId, agent.id))
+            .orderBy(desc(performanceSnapshots.timestamp))
+            .limit(1);
+          
+          const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+          const shouldCreateSnapshot = 
+            lastSnapshot.length === 0 || 
+            (new Date().getTime() - new Date(lastSnapshot[0].timestamp).getTime()) >= SNAPSHOT_INTERVAL_MS;
+          
+          if (shouldCreateSnapshot) {
+            await db.insert(performanceSnapshots).values({
+              agentId: agent.id,
+              accountValue: currentBalance.toFixed(2),
+              totalPnL: pnl.toFixed(2),
+              totalPnLPercentage: pnlPercentage.toFixed(2),
+              openPositions: openPositionsCount,
+            });
+          }
         } catch (error) {
           console.error(`Error updating balance for ${agent.name}:`, error);
         }

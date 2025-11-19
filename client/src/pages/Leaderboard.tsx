@@ -90,6 +90,7 @@ export default function Leaderboard() {
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery<PerformanceSnapshot[]>({
     queryKey: ["/api/performance"],
+    refetchInterval: 60000, // Refresh every 1 minute to show updated PnL
   });
 
   if (agentsLoading || performanceLoading) {
