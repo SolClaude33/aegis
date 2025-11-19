@@ -22,14 +22,18 @@ export default function ControlPanel() {
     }
   }, []);
 
-  // Fetch trading status
+  // Fetch trading status with API key
   const { data: status, isLoading: statusLoading } = useQuery<{
     isRunning: boolean;
     isPaused: boolean;
     isTrading: boolean;
   }>({
-    queryKey: ["/api/trading/status"],
+    queryKey: ["/api/trading/status", apiKey], // Include apiKey in query key so it refetches when key changes
     enabled: isAuthenticated && apiKey.length > 0,
+    queryFn: async () => {
+      const result = await makeRequest("/api/trading/status", "GET");
+      return result as { isRunning: boolean; isPaused: boolean; isTrading: boolean } | null;
+    },
     refetchInterval: 5000, // Refetch every 5 seconds
     retry: false,
     onError: () => {
@@ -67,6 +71,15 @@ export default function ControlPanel() {
 
   const makeRequest = async (endpoint: string, method: string = "GET", body?: any) => {
     try {
+      // Debug: log what we're sending
+      console.log('📤 Sending request:', {
+        endpoint,
+        method,
+        hasApiKey: !!apiKey,
+        apiKeyLength: apiKey.length,
+        apiKeyFirstChars: apiKey.substring(0, 4) + '...'
+      });
+
       const response = await fetch(endpoint, {
         method,
         headers: {
@@ -74,6 +87,11 @@ export default function ControlPanel() {
           "X-Trading-API-Key": apiKey,
         },
         body: body ? JSON.stringify(body) : undefined,
+      });
+
+      console.log('📥 Received response:', {
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries())
       });
 
       if (response.status === 401) {
