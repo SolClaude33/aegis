@@ -174,6 +174,34 @@ export class AsterDexClient {
       false
     );
   }
+
+  /**
+   * Get open positions with unrealized PnL
+   * Returns positions array with positionAmt, entryPrice, markPrice, unrealizedProfit, etc.
+   */
+  async getPositions(): Promise<any[]> {
+    try {
+      const response = await this.request("GET", "/fapi/v2/positionRisk", {});
+      // Filter to only return positions with non-zero size
+      return (response || []).filter((pos: any) => {
+        const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+        return Math.abs(positionAmt) > 0.000001;
+      });
+    } catch (error) {
+      // Fallback to account endpoint if positionRisk doesn't work
+      const account = await this.request("GET", "/fapi/v1/account", {});
+      return account.positions || account.assets?.filter((a: any) => 
+        parseFloat(a.positionAmt || a.position || "0") !== 0
+      ) || [];
+    }
+  }
+
+  /**
+   * Get full account info including positions and balances
+   */
+  async getAccountInfo(): Promise<any> {
+    return await this.request("GET", "/fapi/v1/account", {});
+  }
 }
 
 export function createAsterDexClient(): AsterDexClient {

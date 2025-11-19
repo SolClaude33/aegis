@@ -620,25 +620,91 @@ export class TradingEngine {
 
       for (const agent of allAgents) {
         try {
-          // Get all filled orders for this agent
-          const orders = await db
-            .select()
-            .from(asterdexOrders)
-            .where(eq(asterdexOrders.agentId, agent.id));
+          const agentClient = this.getAgentClient(agent);
+          // Get the current initialCapital from database (should be $20 after migration)
+          const initialCapital = parseFloat(agent.initialCapital);
+          let currentBalance = initialCapital;
 
-          // Calculate current balance based on executed trades
-          let currentBalance = parseFloat(agent.initialCapital);
-          
-          // This is a simplified calculation - in production you'd track actual positions
-          for (const order of orders) {
-            if (order.status === "FILLED" && order.avgFilledPrice && order.filledQuantity) {
-              const tradeValue = parseFloat(order.avgFilledPrice) * parseFloat(order.filledQuantity);
+          // Try to get real balance and positions from AsterDex
+          if (agentClient) {
+            try {
+              // Get account info (balances)
+              const balances = await agentClient.getAccount();
+              // Find USDT or USDC balance (the quote currency)
+              const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
+              // AsterDex returns availableBalance or walletBalance, not free
+              const balanceValue = usdtBalance?.availableBalance || usdtBalance?.walletBalance || usdtBalance?.free || "0";
+              let usdtBalanceAmount = 0;
               
-              if (order.side === "BUY") {
-                currentBalance -= tradeValue;
-              } else {
-                currentBalance += tradeValue;
+              if (usdtBalance && parseFloat(balanceValue) >= 0) {
+                usdtBalanceAmount = parseFloat(balanceValue);
               }
+
+              // Get open positions and calculate unrealized PnL
+              let unrealizedPnL = 0;
+              let openPositionsCount = 0;
+              try {
+                const positions = await agentClient.getPositions();
+                
+                for (const pos of positions) {
+                  const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                  if (Math.abs(positionAmt) > 0.000001) {
+                    openPositionsCount++;
+                    // unrealizedProfit is already in USDT
+                    const unrealized = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                    unrealizedPnL += unrealized;
+                  }
+                }
+              } catch (posError) {
+                console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
+              }
+
+              // Total capital = USDT balance + unrealized PnL from open positions
+              currentBalance = usdtBalanceAmount + unrealizedPnL;
+              
+              console.log(
+                `💰 ${agent.name}: Balance $${usdtBalanceAmount.toFixed(2)} + Unrealized PnL $${unrealizedPnL.toFixed(2)} = Total $${currentBalance.toFixed(2)} (${openPositionsCount} positions)`
+              );
+            } catch (error) {
+              console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
+            }
+          }
+
+          // Fallback: Calculate current balance based on executed trades
+          if (!agentClient || currentBalance === initialCapital) {
+            const orders = await db
+              .select()
+              .from(asterdexOrders)
+              .where(eq(asterdexOrders.agentId, agent.id));
+
+            for (const order of orders) {
+              if (order.status === "FILLED" && order.avgFilledPrice && order.filledQuantity) {
+                const tradeValue = parseFloat(order.avgFilledPrice) * parseFloat(order.filledQuantity);
+                
+                if (order.side === "BUY") {
+                  currentBalance -= tradeValue;
+                } else {
+                  currentBalance += tradeValue;
+                }
+              }
+            }
+          }
+
+          // Calculate PnL based on current balance vs initial capital ($20)
+          const pnl = currentBalance - initialCapital;
+          const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
+
+          // Get open positions count for snapshot
+          let openPositionsCount = 0;
+          if (agentClient) {
+            try {
+              const positions = await agentClient.getPositions();
+              openPositionsCount = positions.filter((pos: any) => {
+                const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                return Math.abs(positionAmt) > 0.000001;
+              }).length;
+            } catch (error) {
+              // Ignore error, use 0
             }
           }
 
@@ -647,11 +713,8 @@ export class TradingEngine {
             .update(agents)
             .set({
               currentCapital: currentBalance.toFixed(2),
-              totalPnL: (currentBalance - parseFloat(agent.initialCapital)).toFixed(2),
-              totalPnLPercentage: (
-                ((currentBalance - parseFloat(agent.initialCapital)) / parseFloat(agent.initialCapital)) *
-                100
-              ).toFixed(2),
+              totalPnL: pnl.toFixed(2),
+              totalPnLPercentage: pnlPercentage.toFixed(2),
               updatedAt: new Date(),
             })
             .where(eq(agents.id, agent.id));
@@ -660,12 +723,9 @@ export class TradingEngine {
           await db.insert(performanceSnapshots).values({
             agentId: agent.id,
             accountValue: currentBalance.toFixed(2),
-            totalPnL: (currentBalance - parseFloat(agent.initialCapital)).toFixed(2),
-            totalPnLPercentage: (
-              ((currentBalance - parseFloat(agent.initialCapital)) / parseFloat(agent.initialCapital)) *
-              100
-            ).toFixed(2),
-            openPositions: 0, // TODO: Calculate from positions
+            totalPnL: pnl.toFixed(2),
+            totalPnLPercentage: pnlPercentage.toFixed(2),
+            openPositions: openPositionsCount,
           });
         } catch (error) {
           console.error(`Error updating balance for ${agent.name}:`, error);

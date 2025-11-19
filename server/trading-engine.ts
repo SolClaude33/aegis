@@ -659,18 +659,48 @@ export class TradingEngine {
           const initialCapital = parseFloat(agent.initialCapital);
           let currentBalance = initialCapital;
 
-          // Try to get real balance from AsterDex
+          // Try to get real balance and positions from AsterDex
           if (agentClient) {
             try {
+              // Get account info (balances)
               const balances = await agentClient.getAccount();
               // Find USDT or USDC balance (the quote currency)
               const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
               // AsterDex returns availableBalance or walletBalance, not free
               const balanceValue = usdtBalance?.availableBalance || usdtBalance?.walletBalance || usdtBalance?.free || "0";
+              let usdtBalanceAmount = 0;
+              
               if (usdtBalance && parseFloat(balanceValue) >= 0) {
-                currentBalance = parseFloat(balanceValue);
-                console.log(`💰 ${agent.name}: Balance updated from AsterDex: $${currentBalance.toFixed(2)}`);
+                usdtBalanceAmount = parseFloat(balanceValue);
               }
+
+              // Get open positions and calculate unrealized PnL
+              let unrealizedPnL = 0;
+              let openPositionsCount = 0;
+              try {
+                const positions = await agentClient.getPositions();
+                
+                for (const pos of positions) {
+                  const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                  if (Math.abs(positionAmt) > 0.000001) {
+                    openPositionsCount++;
+                    // unrealizedProfit is already in USDT
+                    const unrealized = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                    unrealizedPnL += unrealized;
+                  }
+                }
+              } catch (posError) {
+                console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
+              }
+
+              // Total capital = USDT balance + unrealized PnL from open positions
+              // Note: The positions themselves are already reflected in the USDT balance
+              // The unrealizedPnL is the profit/loss that would be realized if positions were closed now
+              currentBalance = usdtBalanceAmount + unrealizedPnL;
+              
+              console.log(
+                `💰 ${agent.name}: Balance $${usdtBalanceAmount.toFixed(2)} + Unrealized PnL $${unrealizedPnL.toFixed(2)} = Total $${currentBalance.toFixed(2)} (${openPositionsCount} positions)`
+              );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
             }
@@ -711,13 +741,27 @@ export class TradingEngine {
             })
             .where(eq(agents.id, agent.id));
 
+          // Get open positions count for snapshot
+          let openPositionsCount = 0;
+          if (agentClient) {
+            try {
+              const positions = await agentClient.getPositions();
+              openPositionsCount = positions.filter((pos: any) => {
+                const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                return Math.abs(positionAmt) > 0.000001;
+              }).length;
+            } catch (error) {
+              // Ignore error, use 0
+            }
+          }
+
           // Create performance snapshot
           await db.insert(performanceSnapshots).values({
             agentId: agent.id,
             accountValue: currentBalance.toFixed(2),
             totalPnL: pnl.toFixed(2),
             totalPnLPercentage: pnlPercentage.toFixed(2),
-            openPositions: 0, // TODO: Calculate from positions
+            openPositions: openPositionsCount,
           });
         } catch (error) {
           console.error(`Error updating balance for ${agent.name}:`, error);
