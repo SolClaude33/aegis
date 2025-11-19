@@ -23,9 +23,22 @@ export class TradingEngine {
     this.isRunning = true;
     console.log("🚀 Trading Engine Started - Live Trading Active");
 
+    // Wait a few seconds to ensure database and agents are fully initialized
+    // Then start trading immediately
+    setTimeout(async () => {
+      console.log("⚡ Initializing first trading cycle...");
+      // Update balances first to ensure we have accurate starting capital
+      await this.updateAgentBalances();
+      // Run first trading cycle immediately
+      await this.runTradingCycle();
+      console.log("✅ First trading cycle complete - IAs are now trading!");
+    }, 3000); // 3 second delay to ensure everything is ready
+    
     // Run trading cycle every 2 minutes
-    this.runTradingCycle();
     setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
+    
+    // Update balances every 60 seconds to reflect positions and PnL
+    setInterval(() => this.updateAgentBalances(), 60 * 1000);
   }
 
   stop() {

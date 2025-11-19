@@ -81,9 +81,10 @@ app.use((req, res, next) => {
   await seedDatabase();
   
   // Start trading engine after database is seeded
+  // The engine will wait 3 seconds for initialization, then start trading immediately
   const { getTradingEngine } = await import("./trading-engine");
   const tradingEngine = getTradingEngine();
-  tradingEngine.start();
+  await tradingEngine.start();
   
   const server = await registerRoutes(app);
 
