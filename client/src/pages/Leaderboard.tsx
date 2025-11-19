@@ -52,14 +52,35 @@ ChartJS.register(whiteLegendTextPlugin);
 // Set global defaults for all charts
 ChartJS.defaults.plugins.legend.labels.color = '#FFFFFF';
 
-const AGENT_COLORS = [
-  "rgba(0, 255, 255, 1)",      // Bright Cyan
-  "rgba(0, 255, 136, 1)",      // Bright Green
-  "rgba(255, 223, 0, 1)",      // Bright Gold
-  "rgba(255, 68, 136, 1)",     // Bright Pink
-  "rgba(187, 134, 252, 1)",    // Bright Purple
-  "rgba(255, 160, 64, 1)",     // Bright Orange
-];
+// Color map for each AI agent - specific colors for easy identification
+const AGENT_COLOR_MAP: Record<string, { border: string; fill: string }> = {
+  "Claude-3.5": {
+    border: "rgba(0, 212, 255, 1)",      // Cyber Blue - Primary
+    fill: "rgba(0, 212, 255, 0.15)",
+  },
+  "DeepSeek-R1": {
+    border: "rgba(0, 255, 136, 1)",      // Cyber Green - Success
+    fill: "rgba(0, 255, 136, 0.15)",
+  },
+  "GPT-5": {
+    border: "rgba(255, 223, 0, 1)",      // Gold - Premium
+    fill: "rgba(255, 223, 0, 0.15)",
+  },
+  "Grok-4": {
+    border: "rgba(255, 68, 136, 1)",     // Pink - Aggressive
+    fill: "rgba(255, 68, 136, 0.15)",
+  },
+  "Gemini-2": {
+    border: "rgba(187, 134, 252, 1)",    // Purple - AI Magic
+    fill: "rgba(187, 134, 252, 0.15)",
+  },
+};
+
+// Fallback color for unknown agents
+const DEFAULT_COLOR = {
+  border: "rgba(255, 255, 255, 0.5)",
+  fill: "rgba(255, 255, 255, 0.1)",
+};
 
 export default function Leaderboard() {
   const { data: agents, isLoading: agentsLoading } = useQuery<Agent[]>({
@@ -108,33 +129,36 @@ export default function Leaderboard() {
     new Set(performanceData.map((s) => new Date(s.timestamp).getTime()))
   ).sort((a, b) => a - b);
 
-  const datasets = agents.map((agent, index) => {
+  const datasets = agents.map((agent) => {
     const agentSnapshots = groupedData[agent.id] || [];
     const data = allTimestamps.map((timestamp) => {
       const snapshot = agentSnapshots.find(
         (s) => new Date(s.timestamp).getTime() === timestamp
       );
-      // Show PnL (starts at 0) instead of accountValue
+      // Show PnL (starts at 0) - profits/pérdidas
       return snapshot ? Number(snapshot.totalPnL) : null;
     });
+
+    // Get specific color for this agent
+    const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
 
     return {
       label: agent.name,
       data: data,
-      borderColor: AGENT_COLORS[index % AGENT_COLORS.length],
-      backgroundColor: AGENT_COLORS[index % AGENT_COLORS.length].replace("1)", "0.2)"),
-      borderWidth: 5, // Thicker lines for better visibility
-      pointRadius: 0, // No points visible
-      pointHoverRadius: 0, // No points on hover
-      pointHoverBorderWidth: 0,
-      pointBackgroundColor: "transparent",
-      pointBorderColor: "transparent",
-      pointBorderWidth: 0,
-      tension: 0.4, // Smoother curves for progressive visualization
-      fill: true, // Filled areas for better visual impact
-      hitRadius: 50, // Larger hit area for easier hovering
+      borderColor: colors.border,
+      backgroundColor: colors.fill,
+      borderWidth: 3, // Clean, visible lines
+      pointRadius: 0, // No points - clean lines only
+      pointHoverRadius: 6, // Show point on hover for better UX
+      pointHoverBorderWidth: 3,
+      pointBackgroundColor: colors.border,
+      pointBorderColor: "#000000",
+      pointBorderWidth: 2,
+      tension: 0.4, // Smooth curves
+      fill: true, // Filled area under line
+      hitRadius: 30, // Good hover area
       spanGaps: false,
-      stepped: false, // Smooth lines, not stepped
+      stepped: false,
     };
   });
 
@@ -148,44 +172,49 @@ export default function Leaderboard() {
     maintainAspectRatio: false,
     layout: {
       padding: {
-        top: 20,
+        top: 10,
         right: 20,
         bottom: 10,
-        left: 10,
+        left: 20,
       },
     },
     interaction: {
-      mode: "index" as const, // Show all datasets at same time point
-      intersect: false, // Easier to hover anywhere on line
-      axis: "x" as const, // Only care about x-axis for hover
+      mode: "index" as const,
+      intersect: false,
     },
     onHover: (event: any, activeElements: any, chart: any) => {
       if (activeElements && activeElements.length > 0) {
         const activeDatasetIndex = activeElements[0].datasetIndex;
         
         chart.data.datasets.forEach((dataset: any, index: number) => {
-          const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
+          const agentName = dataset.label;
+          const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
+          
           if (index === activeDatasetIndex) {
-            dataset.borderColor = originalColor;
-            dataset.backgroundColor = originalColor.replace("1)", "0.3)");
-            dataset.borderWidth = 7; // Even thicker on hover for emphasis
-            dataset.pointRadius = 0; // Never show points
+            // Highlight active line
+            dataset.borderColor = colors.border;
+            dataset.backgroundColor = colors.fill.replace("0.15)", "0.25)");
+            dataset.borderWidth = 4;
+            dataset.pointRadius = 6;
           } else {
-            dataset.borderColor = originalColor.replace("1)", "0.25)");
-            dataset.backgroundColor = originalColor.replace("1)", "0.05)");
-            dataset.borderWidth = 3; // Thinner for inactive lines
-            dataset.pointRadius = 0; // No visible points
+            // Dim inactive lines
+            dataset.borderColor = colors.border.replace("1)", "0.3)");
+            dataset.backgroundColor = colors.fill.replace("0.15)", "0.05)");
+            dataset.borderWidth = 2;
+            dataset.pointRadius = 0;
           }
         });
         
         chart.update('none');
       } else {
-        chart.data.datasets.forEach((dataset: any, index: number) => {
-          const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
-          dataset.borderColor = originalColor;
-          dataset.backgroundColor = originalColor.replace("1)", "0.2)");
-          dataset.borderWidth = 5; // Default thick lines
-          dataset.pointRadius = 0; // No visible points ever
+        // Reset all to default
+        chart.data.datasets.forEach((dataset: any) => {
+          const agentName = dataset.label;
+          const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
+          dataset.borderColor = colors.border;
+          dataset.backgroundColor = colors.fill;
+          dataset.borderWidth = 3;
+          dataset.pointRadius = 0;
         });
         chart.update('none');
       }
@@ -194,53 +223,77 @@ export default function Leaderboard() {
       legend: {
         display: true,
         position: "top" as const,
+        align: "start" as const,
         labels: {
           color: "rgb(255, 255, 255)",
-          usePointStyle: true,
-          padding: 15,
-          boxWidth: 12,
-          boxHeight: 12,
+          usePointStyle: false,
+          padding: 12,
+          boxWidth: 20,
+          boxHeight: 4,
           font: {
             family: "Share Tech Mono, monospace",
-            size: 13,
-            weight: "bold" as const,
+            size: 12,
+            weight: "600" as const,
+          },
+          generateLabels: (chart: any) => {
+            return chart.data.datasets.map((dataset: any, index: number) => {
+              const agentName = dataset.label;
+              const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
+              return {
+                text: agentName,
+                fillStyle: colors.border,
+                strokeStyle: colors.border,
+                lineWidth: 3,
+                hidden: dataset.hidden || false,
+                index: index,
+              };
+            });
           },
         },
       },
       tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.95)",
-        titleColor: "#FFFFFF",
+        backgroundColor: "rgba(10, 10, 26, 0.98)",
+        titleColor: "#00d4ff",
         bodyColor: "#FFFFFF",
-        borderColor: "rgba(0, 255, 255, 0.8)",
-        borderWidth: 2,
-        padding: 16,
+        borderColor: "rgba(0, 212, 255, 0.6)",
+        borderWidth: 1,
+        padding: 12,
         displayColors: true,
         titleFont: {
-          size: 14,
-          weight: "bold" as const,
-          family: "Share Tech Mono, monospace",
-        },
-        bodyFont: {
           size: 13,
           weight: "bold" as const,
           family: "Share Tech Mono, monospace",
         },
-        boxPadding: 8,
+        bodyFont: {
+          size: 12,
+          weight: "600" as const,
+          family: "Share Tech Mono, monospace",
+        },
+        boxPadding: 6,
         usePointStyle: true,
+        cornerRadius: 4,
         callbacks: {
+          title: (context: any) => {
+            return context[0].label || "";
+          },
           label: function (context: any) {
-            let label = context.dataset.label || "";
-            if (label) {
-              label += ": ";
-            }
+            const agentName = context.dataset.label || "";
             if (context.parsed.y !== null) {
               const pnl = context.parsed.y;
               const sign = pnl >= 0 ? "+" : "";
-              label += `${sign}$${pnl.toFixed(2)}`;
+              const color = pnl >= 0 ? "#00ff88" : "#ff0044";
+              return `${agentName}: ${sign}$${pnl.toFixed(2)}`;
             } else {
-              label += "No data";
+              return `${agentName}: No data`;
             }
-            return label;
+          },
+          labelColor: (context: any) => {
+            const agentName = context.dataset.label;
+            const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
+            return {
+              borderColor: colors.border,
+              backgroundColor: colors.border,
+            };
           },
         },
       },
@@ -248,46 +301,49 @@ export default function Leaderboard() {
     scales: {
       x: {
         grid: {
-          color: "rgba(255, 255, 255, 0.15)",
+          color: "rgba(255, 255, 255, 0.08)",
           lineWidth: 1,
+          drawBorder: false,
         },
         ticks: {
-          color: "#FFFFFF",
-          maxRotation: 45,
-          minRotation: 45,
+          color: "rgba(255, 255, 255, 0.6)",
+          maxRotation: 0,
+          minRotation: 0,
           font: {
             family: "Share Tech Mono, monospace",
-            size: 11,
-            weight: "normal" as const,
+            size: 10,
           },
-          maxTicksLimit: 12, // Limit number of time labels for better readability
+          maxTicksLimit: 8,
+        },
+        border: {
+          color: "rgba(255, 255, 255, 0.2)",
         },
       },
       y: {
         grid: {
-          color: "rgba(255, 255, 255, 0.2)", // More visible grid lines
+          color: "rgba(255, 255, 255, 0.1)",
           lineWidth: 1,
           drawBorder: true,
-          borderColor: "rgba(255, 255, 255, 0.3)",
+          borderColor: "rgba(0, 212, 255, 0.3)",
         },
         ticks: {
           color: "#FFFFFF",
           callback: function (value: any) {
-            const sign = value >= 0 ? "+" : "";
-            return `${sign}$${value.toFixed(2)}`;
+            const numValue = typeof value === 'number' ? value : parseFloat(value);
+            if (isNaN(numValue)) return '';
+            const sign = numValue >= 0 ? "+" : "";
+            return `${sign}$${numValue.toFixed(2)}`;
           },
           font: {
             family: "Share Tech Mono, monospace",
-            size: 13,
-            weight: "bold" as const,
+            size: 11,
+            weight: "600" as const,
           },
-          stepSize: 2, // Show ticks every $2 for better granularity of profit/loss changes
-          precision: 2, // Show 2 decimal places
+          stepSize: 5, // Show ticks every $5
+          precision: 2,
         },
-        beginAtZero: false, // Don't force start at 0, allow better zoom
-        suggestedMin: undefined, // Auto-calculate min based on data
-        suggestedMax: undefined, // Auto-calculate max based on data
-        grace: "10%", // Add 10% padding above and below data range for better visibility
+        beginAtZero: true, // Always start at 0 to show baseline
+        position: "left" as const,
       },
     },
   };
@@ -312,7 +368,10 @@ export default function Leaderboard() {
         </div>
         <PriceTracker layout="horizontal" />
         <Card className="p-6 bg-card border-card-border">
-          <div className="h-[800px] w-full" data-testid="chart-performance">
+          <div className="mb-4 text-sm text-white/70 font-mono">
+            Real-time PnL tracking - Each line represents an AI agent's profit/loss over time
+          </div>
+          <div className="h-[700px] w-full" data-testid="chart-performance">
             <Line data={chartData} options={chartOptions} />
           </div>
         </Card>
