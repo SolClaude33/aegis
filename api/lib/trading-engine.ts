@@ -640,8 +640,9 @@ export class TradingEngine {
                 usdtBalanceAmount = parseFloat(balanceValue);
               }
 
-              // Get open positions and calculate unrealized PnL
-              let unrealizedPnL = 0;
+              // Get open positions and calculate total value (entry value + unrealized PnL)
+              let positionsValue = 0; // Total value of open positions (entry + PnL)
+              let unrealizedPnL = 0; // Just the PnL portion
               let openPositionsCount = 0;
               try {
                 const positions = await agentClient.getPositions();
@@ -650,20 +651,33 @@ export class TradingEngine {
                   const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
                   if (Math.abs(positionAmt) > 0.000001) {
                     openPositionsCount++;
-                    // unrealizedProfit is already in USDT
+                    
+                    // Entry price and current mark price
+                    const entryPrice = parseFloat(pos.entryPrice || "0");
+                    const markPrice = parseFloat(pos.markPrice || pos.currentPrice || entryPrice);
+                    
+                    // Value of position at entry (initial investment)
+                    const entryValue = Math.abs(positionAmt * entryPrice);
+                    
+                    // Unrealized PnL (already in USDT)
                     const unrealized = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
                     unrealizedPnL += unrealized;
+                    
+                    // Total value = entry value + unrealized PnL
+                    // This represents the current value if position were closed now
+                    positionsValue += entryValue + unrealized;
                   }
                 }
               } catch (posError) {
                 console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
               }
 
-              // Total capital = USDT balance + unrealized PnL from open positions
-              currentBalance = usdtBalanceAmount + unrealizedPnL;
+              // Total capital = USDT balance + Total value of open positions (entry + PnL)
+              // The positionsValue already includes both the initial investment and unrealized PnL
+              currentBalance = usdtBalanceAmount + positionsValue;
               
               console.log(
-                `💰 ${agent.name}: Balance $${usdtBalanceAmount.toFixed(2)} + Unrealized PnL $${unrealizedPnL.toFixed(2)} = Total $${currentBalance.toFixed(2)} (${openPositionsCount} positions)`
+                `💰 ${agent.name}: Balance $${usdtBalanceAmount.toFixed(2)} + Positions Value $${positionsValue.toFixed(2)} (${openPositionsCount} pos, PnL: $${unrealizedPnL.toFixed(2)}) = Total $${currentBalance.toFixed(2)}`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
