@@ -513,7 +513,9 @@ ${marketsDesc}
 Strategies:
 ${strategiesDesc}
 
-Decide: action, asset, strategy, position size (0-50%), reasoning, confidence.
+Rules: Max 25% position size (margin), 3x leverage on AsterDex, min $7 margin.
+
+Decide: action, asset, strategy, position size (0-25% margin, AsterDex applies 3x leverage), reasoning, confidence.
 
 JSON only:
 {
