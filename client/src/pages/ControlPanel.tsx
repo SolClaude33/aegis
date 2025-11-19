@@ -77,9 +77,10 @@ export default function ControlPanel() {
       });
 
       if (response.status === 401) {
+        const errorData = await response.json().catch(() => ({}));
         toast({
           title: "Unauthorized",
-          description: "Invalid API key. Please verify your key.",
+          description: errorData.error || "Invalid API key. Please verify your TRADING_CONTROL_API_KEY from Railway.",
           variant: "destructive",
         });
         setIsAuthenticated(false);
@@ -167,24 +168,34 @@ export default function ControlPanel() {
           <div className="space-y-6">
             {!isAuthenticated ? (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-mono text-white/70">
-                    API Key (from Railway)
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="password"
-                      placeholder="Enter your TRADING_CONTROL_API_KEY"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveApiKey();
-                      }}
-                      className="font-mono"
-                    />
-                    <Button onClick={saveApiKey} variant="default">
-                      Save
-                    </Button>
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-primary font-cyber mb-2">
+                      Step 1: Enter Your API Key
+                    </h3>
+                    <p className="text-sm text-white/70 font-mono mb-4">
+                      Get your API key from Railway → Your Project → Variables → TRADING_CONTROL_API_KEY
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-mono text-white/70">
+                      API Key (from Railway)
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        placeholder="Paste your TRADING_CONTROL_API_KEY here"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveApiKey();
+                        }}
+                        className="font-mono"
+                      />
+                      <Button onClick={saveApiKey} variant="default" size="lg">
+                        Save & Connect
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div className="text-xs text-white/60 font-mono p-4 bg-white/5 rounded border border-white/10">
