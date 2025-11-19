@@ -17,6 +17,23 @@ import {
 } from "./schema.js";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
 
+// Middleware to authenticate trading control endpoints
+function requireTradingAuth(req: any, res: any, next: any) {
+  const apiKey = req.headers['x-trading-api-key'] || req.query.apiKey;
+  const secretKey = process.env.TRADING_CONTROL_API_KEY;
+
+  if (!secretKey) {
+    console.error('⚠️  TRADING_CONTROL_API_KEY not set in environment variables');
+    return res.status(500).json({ error: 'Trading control authentication not configured' });
+  }
+
+  if (!apiKey || apiKey !== secretKey) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid API key' });
+  }
+
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server | void> {
   // Agent Routes
   
@@ -460,11 +477,11 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
-  // Trading Control Routes
+  // Trading Control Routes (protected with API key)
   const { getTradingEngine } = await import("./trading-engine");
   
-  // Get trading status
-  app.get('/api/trading/status', async (req, res) => {
+  // Get trading status (protected)
+  app.get('/api/trading/status', requireTradingAuth, async (req, res) => {
     try {
       const tradingEngine = getTradingEngine();
       const status = tradingEngine.getStatus();
@@ -475,8 +492,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
-  // Resume trading
-  app.post('/api/trading/resume', async (req, res) => {
+  // Resume trading (protected)
+  app.post('/api/trading/resume', requireTradingAuth, async (req, res) => {
     try {
       const tradingEngine = getTradingEngine();
       const result = await tradingEngine.resume();
@@ -487,8 +504,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
-  // Pause trading (optionally close all positions)
-  app.post('/api/trading/pause', async (req, res) => {
+  // Pause trading (optionally close all positions) (protected)
+  app.post('/api/trading/pause', requireTradingAuth, async (req, res) => {
     try {
       const tradingEngine = getTradingEngine();
       const { closePositions } = req.body;
@@ -500,8 +517,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
-  // Close all open positions
-  app.post('/api/trading/close-all-positions', async (req, res) => {
+  // Close all open positions (protected)
+  app.post('/api/trading/close-all-positions', requireTradingAuth, async (req, res) => {
     try {
       const tradingEngine = getTradingEngine();
       const result = await tradingEngine.closeAllPositions();
