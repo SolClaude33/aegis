@@ -22,7 +22,7 @@ export interface ValidationResult {
 const MAX_POSITION_SIZE_PERCENT = 30; // Max 30% of capital per position
 const MAX_LOSS_PER_TRADE_PERCENT = 5; // Max 5% loss per trade
 const MAX_TRADES_PER_CYCLE = 3; // Max 3 trades per 2-minute cycle
-const MIN_CAPITAL_TO_TRADE = 10; // Minimum $10 to place a trade
+const MIN_CAPITAL_TO_TRADE = 5; // Minimum $5 to place a trade
 
 /**
  * Validates that the LLM decision complies with risk management rules
@@ -120,7 +120,7 @@ export class TradingValidator {
     }
 
     // Calculate actual trade amount
-    const tradeAmount = (context.agentCapital * maxPositionSize) / 100;
+    let tradeAmount = (context.agentCapital * maxPositionSize) / 100;
     const marketInfo = context.marketData.find((m) => m.symbol === decision.asset);
 
     if (!marketInfo) {
@@ -130,15 +130,29 @@ export class TradingValidator {
       };
     }
 
-    if (tradeAmount < 10) {
-      return {
-        isValid: false,
-        reason: `Trade amount too small: $${tradeAmount.toFixed(2)} < $10 minimum`,
-      };
-    }
-
     // All checks passed, adjust position size if needed
     const adjustedDecision: Partial<LLMTradingDecision> = {};
+    
+    // If trade amount is below minimum, try to adjust position size to meet minimum
+    if (tradeAmount < MIN_CAPITAL_TO_TRADE) {
+      // Calculate minimum position size needed to reach $5
+      const minPositionSizePercent = (MIN_CAPITAL_TO_TRADE / context.agentCapital) * 100;
+      
+      // If we can meet minimum without exceeding max, adjust
+      if (minPositionSizePercent <= MAX_POSITION_SIZE_PERCENT) {
+        adjustedDecision.positionSizePercent = Math.max(maxPositionSize, minPositionSizePercent);
+        tradeAmount = (context.agentCapital * adjustedDecision.positionSizePercent) / 100;
+        console.log(`⚙️  Adjusted position size from ${maxPositionSize.toFixed(1)}% to ${adjustedDecision.positionSizePercent.toFixed(1)}% to meet $${MIN_CAPITAL_TO_TRADE} minimum`);
+      } else {
+        // Cannot meet minimum without exceeding max position size
+        return {
+          isValid: false,
+          reason: `Trade amount too small: $${tradeAmount.toFixed(2)} < $${MIN_CAPITAL_TO_TRADE} minimum. Need ${minPositionSizePercent.toFixed(1)}% but max is ${MAX_POSITION_SIZE_PERCENT}%`,
+        };
+      }
+    }
+    
+    // Ensure we don't exceed max position size
     if (decision.positionSizePercent > MAX_POSITION_SIZE_PERCENT) {
       adjustedDecision.positionSizePercent = MAX_POSITION_SIZE_PERCENT;
     }
