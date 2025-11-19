@@ -379,11 +379,49 @@ export class TradingEngine {
     }
 
     // Normalize quantity precision
-    const normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
+    let normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
 
     if (normalizedQuantity <= 0) {
       console.log(`⚠️  Normalized quantity is too small for ${asset}`);
       return;
+    }
+
+    // For BUY orders, ensure notional (quantity * price) meets minimum $5 requirement
+    // After normalization, the notional might be less than $5 due to rounding down
+    if (decision.action === "BUY") {
+      const MIN_NOTIONAL = 5.0;
+      let notional = normalizedQuantity * marketPrice;
+      
+      // If notional is below minimum, increase quantity by one precision step
+      if (notional < MIN_NOTIONAL) {
+        // Get precision step (e.g., 0.01 for 2 decimals, 1 for 0 decimals)
+        let decimals = 2;
+        if (asterdexSymbol.startsWith("DOGE")) {
+          decimals = 0;
+        } else if (asterdexSymbol.startsWith("BTC")) {
+          decimals = 4;
+        } else if (asterdexSymbol.startsWith("ETH")) {
+          decimals = 3;
+        } else if (asterdexSymbol.startsWith("BNB")) {
+          decimals = 2;
+        }
+        const precisionStep = Math.pow(10, -decimals);
+        
+        // Increase quantity until notional >= $5
+        while (notional < MIN_NOTIONAL && normalizedQuantity < quantity * 1.1) {
+          normalizedQuantity += precisionStep;
+          normalizedQuantity = this.normalizePrecision(asterdexSymbol, normalizedQuantity);
+          notional = normalizedQuantity * marketPrice;
+        }
+        
+        // Final check: if still below minimum, reject
+        if (notional < MIN_NOTIONAL) {
+          console.log(`⚠️  ${agent.name}: Cannot meet minimum notional $${MIN_NOTIONAL}. Calculated: $${notional.toFixed(2)}`);
+          return;
+        }
+        
+        console.log(`⚙️  Adjusted quantity to meet minimum notional: ${normalizedQuantity} ${asset} = $${notional.toFixed(2)}`);
+      }
     }
 
     console.log(
