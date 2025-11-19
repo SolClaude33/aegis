@@ -467,6 +467,62 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     return httpServer;
   }
   
+  // Trading Control Routes
+  const { getTradingEngine } = await import("./trading-engine");
+  
+  // Get trading status
+  app.get('/api/trading/status', async (req, res) => {
+    try {
+      const tradingEngine = getTradingEngine();
+      const status = tradingEngine.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error('Error fetching trading status:', error);
+      res.status(500).json({ error: 'Failed to fetch trading status' });
+    }
+  });
+
+  // Resume trading
+  app.post('/api/trading/resume', async (req, res) => {
+    try {
+      const tradingEngine = getTradingEngine();
+      const result = await tradingEngine.resume();
+      res.json(result);
+    } catch (error) {
+      console.error('Error resuming trading:', error);
+      res.status(500).json({ error: 'Failed to resume trading' });
+    }
+  });
+
+  // Pause trading (optionally close all positions)
+  app.post('/api/trading/pause', async (req, res) => {
+    try {
+      const tradingEngine = getTradingEngine();
+      const { closePositions } = req.body;
+      const result = await tradingEngine.pause(closePositions === true);
+      res.json(result);
+    } catch (error) {
+      console.error('Error pausing trading:', error);
+      res.status(500).json({ error: 'Failed to pause trading' });
+    }
+  });
+
+  // Close all open positions
+  app.post('/api/trading/close-all-positions', async (req, res) => {
+    try {
+      const tradingEngine = getTradingEngine();
+      const result = await tradingEngine.closeAllPositions();
+      res.json({ 
+        success: true, 
+        ...result,
+        message: `Closed ${result.closed} positions, ${result.errors} errors` 
+      });
+    } catch (error) {
+      console.error('Error closing positions:', error);
+      res.status(500).json({ error: 'Failed to close positions' });
+    }
+  });
+
   // Return undefined for serverless
   return undefined;
 }

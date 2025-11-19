@@ -8,6 +8,9 @@ import { eq } from "drizzle-orm";
 
 export class TradingEngine {
   private isRunning: boolean = false;
+  private isPaused: boolean = true; // Start paused - user must manually start
+  private tradingInterval: NodeJS.Timeout | null = null;
+  private balanceInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
 
   constructor() {
@@ -21,29 +24,185 @@ export class TradingEngine {
     }
 
     this.isRunning = true;
-    console.log("🚀 Trading Engine Started - Live Trading Active");
+    console.log("🚀 Trading Engine Started - Currently PAUSED");
+    console.log("📌 Use /api/trading/resume to start trading, /api/trading/pause to stop");
 
-    // Wait a few seconds to ensure database and agents are fully initialized
-    // Then start trading immediately
+    // Start balance updates immediately (these don't trade, just update data)
+    this.updateAgentBalances();
+    this.balanceInterval = setInterval(() => this.updateAgentBalances(), 60 * 1000);
+    
+    // Trading cycles are controlled by resume/pause
+    // Don't start trading automatically - user must call resume
+  }
+
+  async resume() {
+    if (!this.isRunning) {
+      console.log("⚠️  Trading engine is not running. Call start() first.");
+      return { success: false, message: "Trading engine is not running" };
+    }
+
+    if (!this.isPaused) {
+      console.log("Trading is already active");
+      return { success: true, message: "Trading is already active" };
+    }
+
+    this.isPaused = false;
+    console.log("▶️  Trading RESUMED - IAs will now execute trades");
+
+    // Update balances first
+    await this.updateAgentBalances();
+
+    // Run first trading cycle immediately
     setTimeout(async () => {
-      console.log("⚡ Initializing first trading cycle...");
-      // Update balances first to ensure we have accurate starting capital
-      await this.updateAgentBalances();
-      // Run first trading cycle immediately
+      console.log("⚡ Running first trading cycle...");
       await this.runTradingCycle();
       console.log("✅ First trading cycle complete - IAs are now trading!");
-    }, 3000); // 3 second delay to ensure everything is ready
-    
+    }, 1000);
+
     // Run trading cycle every 2 minutes
-    setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
-    
-    // Update balances every 60 seconds to reflect positions and PnL
-    setInterval(() => this.updateAgentBalances(), 60 * 1000);
+    this.tradingInterval = setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
+
+    return { success: true, message: "Trading resumed" };
+  }
+
+  async pause(closePositions: boolean = false) {
+    if (this.isPaused) {
+      console.log("Trading is already paused");
+      return { success: true, message: "Trading is already paused" };
+    }
+
+    this.isPaused = true;
+    console.log("⏸️  Trading PAUSED - No new trades will be executed");
+
+    // Clear trading interval
+    if (this.tradingInterval) {
+      clearInterval(this.tradingInterval);
+      this.tradingInterval = null;
+    }
+
+    // Close all open positions if requested
+    if (closePositions) {
+      console.log("🔄 Closing all open positions...");
+      await this.closeAllPositions();
+    }
+
+    return { 
+      success: true, 
+      message: closePositions 
+        ? "Trading paused and all positions closed" 
+        : "Trading paused" 
+    };
   }
 
   stop() {
     this.isRunning = false;
+    this.isPaused = true;
+
+    // Clear all intervals
+    if (this.tradingInterval) {
+      clearInterval(this.tradingInterval);
+      this.tradingInterval = null;
+    }
+    if (this.balanceInterval) {
+      clearInterval(this.balanceInterval);
+      this.balanceInterval = null;
+    }
+
     console.log("🛑 Trading Engine Stopped");
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      isPaused: this.isPaused,
+      isTrading: this.isRunning && !this.isPaused,
+    };
+  }
+
+  /**
+   * Close all open positions for all agents
+   */
+  async closeAllPositions(): Promise<{ closed: number; errors: number }> {
+    let closed = 0;
+    let errors = 0;
+
+    try {
+      const allAgents = await db.select().from(agents).where(eq(agents.isActive, true));
+
+      for (const agent of allAgents) {
+        try {
+          const agentClient = this.getAgentClient(agent);
+          if (!agentClient) {
+            console.log(`⚠️  ${agent.name}: No AsterDex credentials, skipping position closure`);
+            continue;
+          }
+
+          // Get all open positions
+          const positions = await agentClient.getPositions();
+
+          for (const position of positions) {
+            try {
+              const positionAmt = parseFloat(position.positionAmt || position.position || "0");
+              const symbol = position.symbol || position.asset;
+
+              if (Math.abs(positionAmt) < 0.000001) {
+                continue; // Skip zero positions
+              }
+
+              // Determine side: if positionAmt > 0, it's LONG, so we SELL to close
+              // If positionAmt < 0, it's SHORT, so we BUY to close
+              const side = positionAmt > 0 ? "SELL" : "BUY";
+              const quantity = Math.abs(positionAmt);
+
+              console.log(`🔄 ${agent.name}: Closing ${side} ${quantity} ${symbol}`);
+
+              // Create closing order
+              const normalizedQuantity = this.normalizePrecision(symbol, quantity);
+              
+              if (normalizedQuantity <= 0) {
+                console.log(`⚠️  ${agent.name}: Quantity too small to close ${symbol}`);
+                continue;
+              }
+
+              await agentClient.createOrder({
+                symbol,
+                side,
+                type: "MARKET",
+                quantity: normalizedQuantity,
+              });
+
+              // Log activity
+              await db.insert(activityEvents).values({
+                agentId: agent.id,
+                eventType: "POSITION_CLOSED",
+                message: `Closed ${side} position: ${normalizedQuantity} ${symbol}`,
+                asset: symbol,
+              });
+
+              closed++;
+              console.log(`✅ ${agent.name}: Successfully closed position ${symbol}`);
+            } catch (posError: any) {
+              errors++;
+              console.error(`❌ ${agent.name}: Error closing position:`, posError.message);
+            }
+          }
+        } catch (agentError: any) {
+          errors++;
+          console.error(`❌ Error closing positions for ${agent.name}:`, agentError.message);
+        }
+      }
+
+      // Update balances after closing positions
+      if (closed > 0) {
+        await this.updateAgentBalances();
+      }
+
+      console.log(`✅ Position closure complete: ${closed} closed, ${errors} errors`);
+      return { closed, errors };
+    } catch (error: any) {
+      console.error("❌ Error in closeAllPositions:", error.message);
+      return { closed, errors };
+    }
   }
 
   private getAgentClient(agent: any): AsterDexClient | null {
@@ -68,6 +227,11 @@ export class TradingEngine {
   }
 
   private async runTradingCycle() {
+    // Don't run trading cycle if paused
+    if (this.isPaused) {
+      return;
+    }
+
     try {
       console.log("⚡ Running Trading Cycle...");
 
