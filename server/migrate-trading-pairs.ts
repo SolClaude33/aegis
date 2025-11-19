@@ -26,8 +26,8 @@ export async function migrateTradingPairs() {
         allowedPairs.includes(pair)
       );
 
-      // If no valid pairs remain, set default to all three
-      const finalPairs = newPairs.length > 0 ? newPairs : allowedPairs;
+      // Always ensure all three pairs are present (add missing ones)
+      const finalPairs = [...new Set([...allowedPairs, ...newPairs])].sort();
 
       // Only update if pairs changed
       if (JSON.stringify(currentPairs.sort()) !== JSON.stringify(finalPairs.sort())) {
