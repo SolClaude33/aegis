@@ -122,14 +122,18 @@ export default function Leaderboard() {
       label: agent.name,
       data: data,
       borderColor: AGENT_COLORS[index % AGENT_COLORS.length],
-      backgroundColor: AGENT_COLORS[index % AGENT_COLORS.length].replace("1)", "0.2)"),
-      borderWidth: 3,
-      pointRadius: 0,
-      pointHoverRadius: 6,
-      pointHoverBorderWidth: 2,
-      tension: 0.4,
-      fill: false,
-      hitRadius: 30,
+      backgroundColor: AGENT_COLORS[index % AGENT_COLORS.length].replace("1)", "0.15)"),
+      borderWidth: 4,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointHoverBorderWidth: 3,
+      pointBackgroundColor: AGENT_COLORS[index % AGENT_COLORS.length],
+      pointBorderColor: "#FFFFFF",
+      pointBorderWidth: 2,
+      tension: 0.3,
+      fill: true,
+      hitRadius: 40,
+      spanGaps: false,
     };
   });
 
@@ -162,12 +166,14 @@ export default function Leaderboard() {
           const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
           if (index === activeDatasetIndex) {
             dataset.borderColor = originalColor;
-            dataset.backgroundColor = originalColor.replace("1)", "0.2)");
-            dataset.borderWidth = 4;
+            dataset.backgroundColor = originalColor.replace("1)", "0.25)");
+            dataset.borderWidth = 5;
+            dataset.pointRadius = 7;
           } else {
-            dataset.borderColor = originalColor.replace("1)", "0.2)");
+            dataset.borderColor = originalColor.replace("1)", "0.3)");
             dataset.backgroundColor = originalColor.replace("1)", "0.05)");
             dataset.borderWidth = 2;
+            dataset.pointRadius = 3;
           }
         });
         
@@ -176,8 +182,9 @@ export default function Leaderboard() {
         chart.data.datasets.forEach((dataset: any, index: number) => {
           const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
           dataset.borderColor = originalColor;
-          dataset.backgroundColor = originalColor.replace("1)", "0.2)");
-          dataset.borderWidth = 3;
+          dataset.backgroundColor = originalColor.replace("1)", "0.15)");
+          dataset.borderWidth = 4;
+          dataset.pointRadius = 5;
         });
         chart.update('none');
       }
@@ -200,13 +207,25 @@ export default function Leaderboard() {
         },
       },
       tooltip: {
-        backgroundColor: "rgba(30, 40, 60, 0.95)",
+        backgroundColor: "rgba(0, 0, 0, 0.95)",
         titleColor: "#FFFFFF",
         bodyColor: "#FFFFFF",
-        borderColor: "rgba(0, 255, 255, 0.5)",
+        borderColor: "rgba(0, 255, 255, 0.8)",
         borderWidth: 2,
-        padding: 12,
+        padding: 16,
         displayColors: true,
+        titleFont: {
+          size: 14,
+          weight: "bold" as const,
+          family: "Share Tech Mono, monospace",
+        },
+        bodyFont: {
+          size: 13,
+          weight: "bold" as const,
+          family: "Share Tech Mono, monospace",
+        },
+        boxPadding: 8,
+        usePointStyle: true,
         callbacks: {
           label: function (context: any) {
             let label = context.dataset.label || "";
@@ -217,6 +236,8 @@ export default function Leaderboard() {
               const pnl = context.parsed.y;
               const sign = pnl >= 0 ? "+" : "";
               label += `${sign}$${pnl.toFixed(2)}`;
+            } else {
+              label += "No data";
             }
             return label;
           },
@@ -226,7 +247,8 @@ export default function Leaderboard() {
     scales: {
       x: {
         grid: {
-          color: "rgba(255, 255, 255, 0.1)",
+          color: "rgba(255, 255, 255, 0.15)",
+          lineWidth: 1,
         },
         ticks: {
           color: "#FFFFFF",
@@ -237,11 +259,13 @@ export default function Leaderboard() {
             size: 11,
             weight: "normal" as const,
           },
+          maxTicksLimit: 12, // Limit number of time labels for better readability
         },
       },
       y: {
         grid: {
-          color: "rgba(255, 255, 255, 0.1)",
+          color: "rgba(255, 255, 255, 0.15)",
+          lineWidth: 1,
         },
         ticks: {
           color: "#FFFFFF",
@@ -250,10 +274,14 @@ export default function Leaderboard() {
           },
           font: {
             family: "Share Tech Mono, monospace",
-            size: 11,
-            weight: "normal" as const,
+            size: 12,
+            weight: "bold" as const,
           },
+          stepSize: 5, // Show ticks every $5 for better granularity
         },
+        beginAtZero: false, // Don't force start at 0, allow better zoom
+        suggestedMin: undefined, // Auto-calculate min based on data
+        suggestedMax: undefined, // Auto-calculate max based on data
       },
     },
   };
@@ -278,7 +306,7 @@ export default function Leaderboard() {
         </div>
         <PriceTracker layout="horizontal" />
         <Card className="p-6 bg-card border-card-border">
-          <div className="h-[600px] w-full" data-testid="chart-performance">
+          <div className="h-[700px] w-full" data-testid="chart-performance">
             <Line data={chartData} options={chartOptions} />
           </div>
         </Card>
