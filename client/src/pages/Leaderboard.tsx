@@ -20,6 +20,7 @@ import { TrendingUp, TrendingDown, Activity, Target, Trophy } from "lucide-react
 import AgentAvatar from "@/components/AgentAvatar";
 import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
+import TradingControl from "@/components/TradingControl";
 
 ChartJS.register(
   CategoryScale,
@@ -296,6 +297,8 @@ export default function Leaderboard() {
           AI-Enhanced Galactic Investment Showdown
         </p>
       </div>
+
+      <TradingControl />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
