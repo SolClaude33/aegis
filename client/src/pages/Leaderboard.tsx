@@ -248,6 +248,7 @@ export default function Leaderboard() {
                 pointStyle: 'circle',
                 hidden: dataset.hidden || false,
                 index: index,
+                fontColor: "rgb(255, 255, 255)", // Explicit white text
               };
             });
           },

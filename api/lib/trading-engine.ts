@@ -675,6 +675,12 @@ export class TradingEngine {
       });
 
       console.log(`✅ Order executed for ${agent.name}: ${orderResponse.orderId}`);
+      
+      // If order was filled, update balance and create snapshot immediately
+      if (orderResponse.status === "FILLED" || orderResponse.status === "PARTIALLY_FILLED") {
+        // Update balance for this agent and create snapshot
+        await this.createSnapshotForAgent(agent.id);
+      }
     } catch (error: any) {
       console.error(`❌ Order failed for ${agent.name}:`, error.message);
 
@@ -985,35 +991,106 @@ export class TradingEngine {
             })
             .where(eq(agents.id, agent.id));
 
-          // Only create performance snapshot every 10 minutes
-          // This prevents too many snapshots and keeps the chart clean
-          const lastSnapshot = await db
-            .select()
-            .from(performanceSnapshots)
-            .where(eq(performanceSnapshots.agentId, agent.id))
-            .orderBy(desc(performanceSnapshots.timestamp))
-            .limit(1);
-          
-          const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-          const shouldCreateSnapshot = 
-            lastSnapshot.length === 0 || 
-            (new Date().getTime() - new Date(lastSnapshot[0].timestamp).getTime()) >= SNAPSHOT_INTERVAL_MS;
-          
-          if (shouldCreateSnapshot) {
-            await db.insert(performanceSnapshots).values({
-              agentId: agent.id,
-              accountValue: currentBalance.toFixed(2),
-              totalPnL: pnl.toFixed(2),
-              totalPnLPercentage: pnlPercentage.toFixed(2),
-              openPositions: openPositionsCount,
-            });
-          }
+          // Create snapshot after balance update (will be called every 60s or after trades)
+          // This ensures we capture all changes including trades
+          await this.createSnapshotForAgent(agent.id);
         } catch (error) {
           console.error(`Error updating balance for ${agent.name}:`, error);
         }
       }
     } catch (error) {
       console.error("Error updating agent balances:", error);
+    }
+  }
+
+  // Helper method to create snapshot for a specific agent
+  private async createSnapshotForAgent(agentId: string) {
+    try {
+      const agent = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
+      if (agent.length === 0) return;
+
+      const agentData = agent[0];
+      const agentClient = this.getAgentClient(agentData);
+      const initialCapital = parseFloat(agentData.initialCapital);
+      let currentBalance = parseFloat(agentData.currentCapital);
+      
+      // Get real balance from AsterDex if available
+      if (agentClient) {
+        try {
+          const accountInfo = await agentClient.getAccountInfo();
+          const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                            accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+          
+          if (usdtAsset && usdtAsset.availableBalance) {
+            const available = parseFloat(usdtAsset.availableBalance || "0");
+            
+            // Get open positions
+            let hasOpenPositions = false;
+            let unrealizedPnL = 0;
+            try {
+              const positions = await agentClient.getPositions();
+              for (const pos of positions) {
+                const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                if (Math.abs(positionAmt) > 0.000001) {
+                  hasOpenPositions = true;
+                  unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                }
+              }
+            } catch {}
+            
+            if (hasOpenPositions && Math.abs(unrealizedPnL) > 0.0001) {
+              currentBalance = available + unrealizedPnL;
+            } else {
+              currentBalance = available;
+            }
+          }
+        } catch (error) {
+          // Use currentCapital from database if API fails
+        }
+      }
+
+      // Calculate PnL
+      const pnl = currentBalance - initialCapital;
+      const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
+
+      // Get open positions count
+      let openPositionsCount = 0;
+      if (agentClient) {
+        try {
+          const positions = await agentClient.getPositions();
+          openPositionsCount = positions.filter((pos: any) => {
+            const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+            return Math.abs(positionAmt) > 0.000001;
+          }).length;
+        } catch (error) {
+          // Ignore error
+        }
+      }
+
+      // Check if we should create snapshot (avoid duplicates within 30 seconds)
+      const lastSnapshot = await db
+        .select()
+        .from(performanceSnapshots)
+        .where(eq(performanceSnapshots.agentId, agentId))
+        .orderBy(desc(performanceSnapshots.timestamp))
+        .limit(1);
+      
+      const MIN_SNAPSHOT_INTERVAL_MS = 30 * 1000; // 30 seconds minimum between snapshots
+      const shouldCreateSnapshot = 
+        lastSnapshot.length === 0 || 
+        (new Date().getTime() - new Date(lastSnapshot[0].timestamp).getTime()) >= MIN_SNAPSHOT_INTERVAL_MS;
+      
+      if (shouldCreateSnapshot) {
+        await db.insert(performanceSnapshots).values({
+          agentId: agentId,
+          accountValue: currentBalance.toFixed(2),
+          totalPnL: pnl.toFixed(2),
+          totalPnLPercentage: pnlPercentage.toFixed(2),
+          openPositions: openPositionsCount,
+        });
+      }
+    } catch (error) {
+      console.error(`Error creating snapshot for agent ${agentId}:`, error);
     }
   }
 }
