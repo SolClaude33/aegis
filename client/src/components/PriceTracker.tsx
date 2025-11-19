@@ -12,10 +12,9 @@ interface CryptoPrice {
 }
 
 const TRACKED_SYMBOLS = [
-  { symbol: "BNB", name: "BNB Chain" },
   { symbol: "BTC", name: "Bitcoin" },
   { symbol: "ETH", name: "Ethereum" },
-  { symbol: "DOGE", name: "Dogecoin" },
+  { symbol: "BNB", name: "BNB Chain" },
 ];
 
 interface PriceTrackerProps {

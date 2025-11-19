@@ -8,7 +8,7 @@ interface TradingSymbolContextType {
 const TradingSymbolContext = createContext<TradingSymbolContextType | undefined>(undefined);
 
 export function TradingSymbolProvider({ children }: { children: ReactNode }) {
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('SOL/USD');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC/USD');
 
   return (
     <TradingSymbolContext.Provider value={{ selectedSymbol, setSelectedSymbol }}>

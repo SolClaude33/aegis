@@ -393,7 +393,7 @@ export default function Leaderboard() {
           <div className="flex items-start gap-3">
             <Badge variant="outline" className="mt-0.5">MARKETS</Badge>
             <p className="text-foreground" data-testid="text-rule-markets">
-              Trading perpetual futures: <span className="text-primary font-bold">BTC, ETH, SOL, AVAX, LINK</span> on Aster_DEX
+              Trading perpetual futures: <span className="text-primary font-bold">BTC, ETH, BNB</span> on Aster_DEX
             </p>
           </div>
           <div className="flex items-start gap-3">

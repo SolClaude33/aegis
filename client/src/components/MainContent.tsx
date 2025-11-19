@@ -13,13 +13,13 @@ import SolanaCandlestickChart from "./SolanaCandlestickChart";
 export default function MainContent() {
   const { selectedSymbol } = useTradingSymbol();
   const [news] = useState([
-    { id: 1, text: "Solana ecosystem showing strong growth...", time: "12:34", type: "bullish" },
-    { id: 2, text: "SOL breaks key resistance level at $160...", time: "12:31", type: "bullish" },
-    { id: 3, text: "New DeFi protocols launching on Solana...", time: "12:28", type: "neutral" },
+    { id: 1, text: "Bitcoin showing strong momentum...", time: "12:34", type: "bullish" },
+    { id: 2, text: "BTC breaks key resistance level...", time: "12:31", type: "bullish" },
+    { id: 3, text: "Ethereum and BNB showing steady growth...", time: "12:28", type: "neutral" },
   ]);
   const [newsIndex, setNewsIndex] = useState(0);
 
-  // Real-time price from WebSocket (only for SOL/USD)
+  // Real-time price from WebSocket
   const livePrice = useLivePrice();
 
   // Fetch real-time price data for 24h stats
@@ -72,7 +72,7 @@ export default function MainContent() {
           <Card className="p-4 text-center cyber-border relative">
             <Badge className="absolute top-2 right-2 text-xs pulse-glow" data-testid="badge-live-price">LIVE</Badge>
             <div className="text-3xl font-cyber cyber-glow" data-testid="text-live-price">
-              ${selectedSymbol === 'SOL/USD' && livePrice ? livePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
+              ${livePrice ? livePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
                 (priceData?.current_price ? priceData.current_price.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '...')}
             </div>
             <div className="text-sm font-mono text-muted-foreground">

@@ -97,11 +97,9 @@ export class TradingEngine {
   private async fetchMarketData(client: AsterDexClient | null): Promise<(MarketData & { symbol: SupportedCrypto })[]> {
     // Map supported cryptos to AsterDex symbols
     const symbolMap: Record<SupportedCrypto, string> = {
-      SOL: "SOLUSDT",
-      ETH: "ETHUSDT",
       BTC: "BTCUSDT",
+      ETH: "ETHUSDT",
       BNB: "BNBUSDT",
-      DOGE: "DOGEUSDT",
     };
 
     const marketData: (MarketData & { symbol: SupportedCrypto })[] = [];
@@ -116,7 +114,7 @@ export class TradingEngine {
         const asterdexSymbol = symbolMap[crypto];
         const stats = await client.get24hrStats(asterdexSymbol);
         marketData.push({
-          symbol: crypto, // Use our normalized symbol (SOL, ETH, etc.)
+          symbol: crypto, // Use our normalized symbol (BTC, ETH, BNB)
           currentPrice: parseFloat(stats.lastPrice),
           change24h: parseFloat(stats.priceChangePercent),
           volume24h: parseFloat(stats.volume),
@@ -135,7 +133,7 @@ export class TradingEngine {
     const marketData: (MarketData & { symbol: SupportedCrypto })[] = [];
     
     try {
-      const symbols = ['SOL', 'ETH', 'BTC', 'BNB', 'DOGE'];
+      const symbols = ['BTC', 'ETH', 'BNB'];
       const fsyms = symbols.join(',');
       
       const response = await fetch(
@@ -181,7 +179,7 @@ export class TradingEngine {
       // Calculate net position for each symbol
       for (const order of orders) {
         if (order.status === "FILLED" && order.filledQuantity) {
-          // Normalize symbol: SOLUSDT → SOL, ETHUSDT → ETH, etc.
+          // Normalize symbol: BTCUSDT → BTC, ETHUSDT → ETH, BNBUSDT → BNB
           const normalizedSymbol = order.symbol.replace("USDT", "") as SupportedCrypto;
           const quantity = parseFloat(order.filledQuantity);
           const currentPosition = positions.get(normalizedSymbol) || 0;
@@ -211,9 +209,7 @@ export class TradingEngine {
     // Define precision rules based on asset type - being conservative for AsterDex
     let decimals = 2; // Very conservative default
 
-    if (symbol.startsWith("DOGE")) {
-      decimals = 0; // DOGE uses whole numbers
-    } else if (symbol.startsWith("BTC")) {
+    if (symbol.startsWith("BTC")) {
       decimals = 4; // BTC - conservative precision
     } else if (symbol.startsWith("ETH")) {
       decimals = 3; // ETH - conservative precision
@@ -350,13 +346,11 @@ export class TradingEngine {
     const asset = decision.asset;
     if (!asset) return;
 
-    // Map normalized symbol (SOL, ETH, etc.) to AsterDex symbol (SOLUSDT, ETHUSDT, etc.)
+    // Map normalized symbol (BTC, ETH, BNB) to AsterDex symbol (BTCUSDT, ETHUSDT, BNBUSDT)
     const symbolMap: Record<SupportedCrypto, string> = {
-      SOL: "SOLUSDT",
-      ETH: "ETHUSDT",
       BTC: "BTCUSDT",
+      ETH: "ETHUSDT",
       BNB: "BNBUSDT",
-      DOGE: "DOGEUSDT",
     };
 
     const asterdexSymbol = symbolMap[asset as SupportedCrypto];
@@ -376,7 +370,7 @@ export class TradingEngine {
     // For SELL, get actual position size
     if (decision.action === "SELL") {
       const currentPositions = await this.loadCurrentPositions(agent.id);
-      const position = currentPositions.get(asset) || 0; // Use normalized symbol (SOL, ETH, etc.)
+      const position = currentPositions.get(asset) || 0; // Use normalized symbol (BTC, ETH, BNB)
       quantity = position; // Sell entire position
     }
 
@@ -530,7 +524,7 @@ export class TradingEngine {
     }
 
     // Normalize quantity precision for AsterDex
-    // BNB/BTC/ETH typically use 4-6 decimals, DOGE uses 0-2 decimals
+    // BTC/ETH/BNB typically use 2-4 decimals
     const normalizedQuantity = this.normalizePrecision(signal.symbol, signal.quantity || 0);
 
     if (normalizedQuantity <= 0) {

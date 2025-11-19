@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedDatabase } from "./seed";
 import { initializeDatabase } from "./init-db";
+import { migrateTradingPairs } from "./migrate-trading-pairs";
 
 const app = express();
 app.use(express.json());
@@ -44,6 +45,13 @@ app.use((req, res, next) => {
     await initializeDatabase();
   } catch (error) {
     console.error('⚠️  Database initialization failed:', error);
+  }
+  
+  // Migrate trading pairs to only BTC, ETH, BNB
+  try {
+    await migrateTradingPairs();
+  } catch (error) {
+    console.error('⚠️  Trading pairs migration failed:', error);
   }
   
   await seedDatabase();

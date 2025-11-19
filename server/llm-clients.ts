@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { MarketData } from "./trading-strategies.js";
 
 // Supported cryptocurrencies
-export const SUPPORTED_CRYPTOS = ["SOL", "ETH", "BTC", "BNB", "DOGE"] as const;
+export const SUPPORTED_CRYPTOS = ["BTC", "ETH", "BNB"] as const;
 export type SupportedCrypto = typeof SUPPORTED_CRYPTOS[number];
 
 // Available trading strategies
@@ -130,7 +130,7 @@ CURRENT STATE:
 - Open Positions:
 ${positionsDesc}
 
-MARKET DATA (5 cryptocurrencies):
+MARKET DATA (3 cryptocurrencies):
 ${marketsDesc}
 
 AVAILABLE STRATEGIES:
@@ -153,7 +153,7 @@ Analyze the market and decide:
 Respond ONLY with valid JSON:
 {
   "action": "BUY" | "SELL" | "HOLD",
-  "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
+  "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-50,
   "reasoning": "your analysis",
@@ -268,7 +268,7 @@ Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
 Respond with ONLY valid JSON:
 {
   "action": "BUY" | "SELL" | "HOLD",
-  "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
+  "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-50,
   "reasoning": "brief explanation",
@@ -384,7 +384,7 @@ RULES:
 Return JSON only:
 {
   "action": "BUY" | "SELL" | "HOLD",
-  "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
+  "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-50,
   "reasoning": "why",
@@ -497,7 +497,7 @@ Decide: action, asset, strategy, position size (0-50%), reasoning, confidence.
 JSON only:
 {
   "action": "BUY"|"SELL"|"HOLD",
-  "asset": "SOL"|"ETH"|"BTC"|"BNB"|"DOGE"|null,
+  "asset": "BTC"|"ETH"|"BNB"|null,
   "strategy": "momentum"|"swing"|"conservative"|"aggressive"|"trend_follower"|"mean_reversion"|null,
   "positionSizePercent": 0-50,
   "reasoning": "why",

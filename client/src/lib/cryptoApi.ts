@@ -28,7 +28,7 @@ export interface FearGreedData {
 }
 
 // Get real-time price for any symbol via our backend proxy
-export async function getRealTimePrice(symbol: string = 'SOL/USD'): Promise<CryptoPrice> {
+export async function getRealTimePrice(symbol: string = 'BTC/USD'): Promise<CryptoPrice> {
   try {
     const response = await fetch(`/api/crypto/price?symbol=${encodeURIComponent(symbol)}`);
     
@@ -41,17 +41,13 @@ export async function getRealTimePrice(symbol: string = 'SOL/USD'): Promise<Cryp
     return await response.json();
   } catch (error) {
     console.error(`Error fetching ${symbol} price:`, error);
-    // Only fallback to SOL if requesting SOL, otherwise throw
-    if (symbol === 'SOL/USD') {
-      return getSolanaPrice();
-    }
     throw error;
   }
 }
 
 // Legacy function for backward compatibility
 export async function getRealTimeSOLPrice(): Promise<CryptoPrice> {
-  return getRealTimePrice('SOL/USD');
+  return getRealTimePrice('BTC/USD');
 }
 
 export async function getSolanaPrice(): Promise<CryptoPrice> {
@@ -107,7 +103,7 @@ export async function getFearGreedIndex(): Promise<FearGreedData> {
 }
 
 // Get candlestick data via our backend proxy
-export async function getRealTimeCandles(timeframe: string, symbol: string = 'SOL/USD'): Promise<CandlestickData[]> {
+export async function getRealTimeCandles(timeframe: string, symbol: string = 'BTC/USD'): Promise<CandlestickData[]> {
   try {
     const days = getDaysFromTimeframe(timeframe);
     const response = await fetch(`/api/crypto/chart?days=${days}&symbol=${encodeURIComponent(symbol)}`);
@@ -121,11 +117,6 @@ export async function getRealTimeCandles(timeframe: string, symbol: string = 'SO
     return await response.json();
   } catch (error) {
     console.error(`Error fetching ${symbol} candles:`, error);
-    // Only fallback to SOL if requesting SOL, otherwise throw
-    if (symbol === 'SOL/USD') {
-      const fallbackDays = getDaysFromTimeframe(timeframe);
-      return getSolanaCandles(parseFloat(fallbackDays));
-    }
     throw error;
   }
 }
@@ -238,13 +229,11 @@ export async function getMarketPrices(): Promise<MarketTicker[]> {
     return await response.json();
   } catch (error) {
     console.error('Error fetching market prices:', error);
-    // Return fallback data with current real prices (as of Sep 30, 2025)
+    // Return fallback data with current real prices
     return [
       { symbol: 'BTC/USD', price: 114082, change: 3.55 },
       { symbol: 'ETH/USD', price: 4112.48, change: 2.44 },
-      { symbol: 'SOL/USD', price: 199.20, change: -1.64 },
-      { symbol: 'PUMP/USD', price: 0.005493, change: -3.42 },
-      { symbol: 'ASTER/USD', price: 1.91, change: 8.06 },
+      { symbol: 'BNB/USD', price: 600, change: 1.5 },
     ];
   }
 }

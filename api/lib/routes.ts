@@ -425,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
   // Crypto Prices endpoint
   app.get('/api/crypto/prices', async (req, res) => {
     try {
-      const symbols = ['BNB', 'BTC', 'ETH', 'SOL', 'AVAX', 'LINK'];
+      const symbols = ['BTC', 'ETH', 'BNB'];
       const fsyms = symbols.join(',');
       
       const response = await fetch(
@@ -444,12 +444,9 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
         
         return {
           symbol,
-          name: symbol === 'BNB' ? 'BNB Chain' :
-                symbol === 'BTC' ? 'Bitcoin' :
+          name: symbol === 'BTC' ? 'Bitcoin' :
                 symbol === 'ETH' ? 'Ethereum' :
-                symbol === 'SOL' ? 'Solana' :
-                symbol === 'AVAX' ? 'Avalanche' :
-                symbol === 'LINK' ? 'Chainlink' : symbol,
+                symbol === 'BNB' ? 'BNB Chain' : symbol,
           price: raw?.PRICE || 0,
           change24h: raw?.CHANGEPCT24HOUR || 0,
           marketCap: raw?.MKTCAP || 0,
