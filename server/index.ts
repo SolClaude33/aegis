@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { seedDatabase } from "./seed";
 import { initializeDatabase } from "./init-db";
 import { migrateTradingPairs } from "./migrate-trading-pairs";
+import { migrateInitialCapital } from "./migrate-initial-capital";
 
 const app = express();
 app.use(express.json());
@@ -52,6 +53,13 @@ app.use((req, res, next) => {
     await migrateTradingPairs();
   } catch (error) {
     console.error('⚠️  Trading pairs migration failed:', error);
+  }
+  
+  // Migrate initial capital to $20
+  try {
+    await migrateInitialCapital();
+  } catch (error) {
+    console.error('⚠️  Initial capital migration failed:', error);
   }
   
   await seedDatabase();

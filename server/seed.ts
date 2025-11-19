@@ -92,17 +92,6 @@ function generateWalletAddress(): string {
   return address;
 }
 
-async function getBNBPriceInUSD(): Promise<number> {
-  try {
-    const response = await fetch('https://min-api.cryptocompare.com/data/price?fsym=BNB&tsyms=USD');
-    const data = await response.json();
-    return data.USD || 600;
-  } catch (error) {
-    console.log('⚠️  Failed to fetch BNB price, using fallback of $600');
-    return 600;
-  }
-}
-
 export async function seedDatabase() {
   console.log("🌱 Initializing AEGIS Arena with live trading setup...");
 
@@ -112,9 +101,8 @@ export async function seedDatabase() {
     return;
   }
 
-  const bnbPrice = await getBNBPriceInUSD();
-  const initialCapital = bnbPrice.toFixed(2);
-  console.log(`💰 Each agent starts with 1 BNB (~$${initialCapital})`);
+  const initialCapital = "20.00";
+  console.log(`💰 Each agent starts with $${initialCapital} in initial capital`);
 
   for (const config of agentConfigs) {
     const [agent] = await db

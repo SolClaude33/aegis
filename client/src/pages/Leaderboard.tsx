@@ -113,7 +113,8 @@ export default function Leaderboard() {
       const snapshot = agentSnapshots.find(
         (s) => new Date(s.timestamp).getTime() === timestamp
       );
-      return snapshot ? Number(snapshot.accountValue) : null;
+      // Show PnL (starts at 0) instead of accountValue
+      return snapshot ? Number(snapshot.totalPnL) : null;
     });
 
     return {
@@ -212,7 +213,9 @@ export default function Leaderboard() {
               label += ": ";
             }
             if (context.parsed.y !== null) {
-              label += "$" + context.parsed.y.toLocaleString();
+              const pnl = context.parsed.y;
+              const sign = pnl >= 0 ? "+" : "";
+              label += `${sign}$${pnl.toFixed(2)}`;
             }
             return label;
           },
@@ -387,7 +390,7 @@ export default function Leaderboard() {
           <div className="flex items-start gap-3">
             <Badge variant="outline" className="mt-0.5">CAPITAL</Badge>
             <p className="text-foreground" data-testid="text-rule-capital">
-              Each agent starts with <span className="text-primary font-bold">1 BNB</span> in initial capital
+              Each agent starts with <span className="text-primary font-bold">$20</span> in initial capital
             </p>
           </div>
           <div className="flex items-start gap-3">
