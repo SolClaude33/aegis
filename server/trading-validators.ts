@@ -19,10 +19,11 @@ export interface ValidationResult {
 }
 
 // Risk limits constants
-const MAX_POSITION_SIZE_PERCENT = 50; // Max 50% of capital per position
+const LEVERAGE = 3; // 3x leverage configured on AsterDex
+const MAX_POSITION_SIZE_PERCENT = 25; // Max 25% of capital per position (margin)
 const MAX_LOSS_PER_TRADE_PERCENT = 5; // Max 5% loss per trade
 const MAX_TRADES_PER_CYCLE = 3; // Max 3 trades per 2-minute cycle
-const MIN_CAPITAL_TO_TRADE = 7; // Minimum $7 to place a trade
+const MIN_CAPITAL_TO_TRADE = 7; // Minimum $7 margin to place a trade
 
 /**
  * Validates that the LLM decision complies with risk management rules

@@ -538,9 +538,14 @@ export class TradingEngine {
     }
 
     // Calculate trade quantity based on position size percentage
+    // With 3x leverage: margin = capital * positionSizePercent / 100
+    // notional = margin * 3 (what AsterDex sees)
+    // quantity = notional / price
+    const LEVERAGE = 3; // 3x leverage configured on AsterDex
     const agentCapital = parseFloat(agent.currentCapital);
-    const tradeValue = (agentCapital * decision.positionSizePercent) / 100;
-    let quantity = tradeValue / marketPrice;
+    const margin = (agentCapital * decision.positionSizePercent) / 100; // Margin we use (e.g., $25)
+    const notional = margin * LEVERAGE; // Notional value in AsterDex (e.g., $75)
+    let quantity = notional / marketPrice; // Quantity for the notional value
 
     // For SELL, get actual position size
     if (decision.action === "SELL") {
@@ -557,14 +562,16 @@ export class TradingEngine {
       return;
     }
 
-    // For BUY orders, ensure notional (quantity * price) meets minimum $7 requirement
-    // After normalization, the notional might be less than $7 due to rounding down
+    // For BUY orders, ensure notional (quantity * price) meets minimum $7 margin requirement
+    // With 3x leverage, we need: notional >= $7 * 3 = $21
+    // After normalization, the notional might be less than required due to rounding down
     if (decision.action === "BUY") {
-      const MIN_NOTIONAL = 7.0;
-      let notional = normalizedQuantity * marketPrice;
+      const MIN_MARGIN = 7.0; // Minimum margin required
+      const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
+      let actualNotional = normalizedQuantity * marketPrice;
       
       // If notional is below minimum, increase quantity by one precision step
-      if (notional < MIN_NOTIONAL) {
+      if (actualNotional < MIN_NOTIONAL) {
         // Get precision step (e.g., 0.01 for 2 decimals)
         let decimals = 2;
         if (asterdexSymbol.startsWith("BTC")) {
@@ -576,20 +583,21 @@ export class TradingEngine {
         }
         const precisionStep = Math.pow(10, -decimals);
         
-        // Increase quantity until notional >= $5
-        while (notional < MIN_NOTIONAL && normalizedQuantity < quantity * 1.1) {
+        // Increase quantity until notional >= MIN_NOTIONAL
+        while (actualNotional < MIN_NOTIONAL && normalizedQuantity < quantity * 1.1) {
           normalizedQuantity += precisionStep;
           normalizedQuantity = this.normalizePrecision(asterdexSymbol, normalizedQuantity);
-          notional = normalizedQuantity * marketPrice;
+          actualNotional = normalizedQuantity * marketPrice;
         }
         
         // Final check: if still below minimum, reject
-        if (notional < MIN_NOTIONAL) {
-          console.log(`⚠️  ${agent.name}: Cannot meet minimum notional $${MIN_NOTIONAL}. Calculated: $${notional.toFixed(2)}`);
+        if (actualNotional < MIN_NOTIONAL) {
+          console.log(`⚠️  ${agent.name}: Cannot meet minimum notional $${MIN_NOTIONAL} (margin $${MIN_MARGIN} with ${LEVERAGE}x leverage). Calculated: $${actualNotional.toFixed(2)} notional (margin: $${(actualNotional / LEVERAGE).toFixed(2)})`);
           return;
         }
         
-        console.log(`⚙️  Adjusted quantity to meet minimum notional: ${normalizedQuantity} ${asset} = $${notional.toFixed(2)}`);
+        const adjustedMargin = actualNotional / LEVERAGE;
+        console.log(`⚙️  Adjusted quantity: ${normalizedQuantity} ${asset} = $${actualNotional.toFixed(2)} notional ($${adjustedMargin.toFixed(2)} margin with ${LEVERAGE}x leverage)`);
       }
     }
 

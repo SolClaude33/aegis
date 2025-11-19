@@ -137,16 +137,18 @@ AVAILABLE STRATEGIES:
 ${strategiesDesc}
 
 RISK LIMITS (ENFORCED):
-- Max position size: 50% of capital per trade
+- Max position size: 25% of capital per trade (margin)
+- Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
 - Max loss per trade: 5%
 - Max 3 trades per 2-minute cycle
+- Minimum trade: $7 margin
 
 TASK:
 Analyze the market and decide:
 1. Which action: BUY, SELL, or HOLD
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD)
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
-4. Position size as % of capital: 0-50 (or 0 if HOLD)
+4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
 5. Your reasoning (concise)
 6. Confidence level: 0.0-1.0
 
@@ -155,7 +157,7 @@ Respond ONLY with valid JSON:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-50,
+  "positionSizePercent": 0-25,
   "reasoning": "your analysis",
   "confidence": 0.0-1.0
 }`;
@@ -172,7 +174,7 @@ Respond ONLY with valid JSON:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -259,9 +261,11 @@ AVAILABLE STRATEGIES:
 ${strategiesDesc}
 
 CONSTRAINTS:
-- Max 50% position size per trade
+- Max 25% position size per trade (margin)
+- Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
 - Max 5% loss per trade
 - Max 3 trades per cycle
+- Minimum trade: $7 margin
 
 Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
 
@@ -270,7 +274,7 @@ Respond with ONLY valid JSON:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-50,
+  "positionSizePercent": 0-25,
   "reasoning": "brief explanation",
   "confidence": 0.0-1.0
 }`;
@@ -290,7 +294,7 @@ Respond with ONLY valid JSON:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -377,8 +381,10 @@ STRATEGIES:
 ${strategiesDesc}
 
 RULES:
-- Max 50% per position
+- Max 25% per position (margin)
+- Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
 - Max 5% loss per trade
+- Minimum trade: $7 margin
 - Choose best strategy for current conditions
 
 Return JSON only:
@@ -386,7 +392,7 @@ Return JSON only:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-50,
+  "positionSizePercent": 0-25,
   "reasoning": "why",
   "confidence": 0.0-1.0
 }`;
@@ -402,7 +408,7 @@ Return JSON only:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -514,7 +520,7 @@ JSON only:
   "action": "BUY"|"SELL"|"HOLD",
   "asset": "BTC"|"ETH"|"BNB"|null,
   "strategy": "momentum"|"swing"|"conservative"|"aggressive"|"trend_follower"|"mean_reversion"|null,
-  "positionSizePercent": 0-50,
+  "positionSizePercent": 0-25,
   "reasoning": "why",
   "confidence": 0.0-1.0
 }`;
@@ -534,7 +540,7 @@ JSON only:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
