@@ -122,18 +122,19 @@ export default function Leaderboard() {
       label: agent.name,
       data: data,
       borderColor: AGENT_COLORS[index % AGENT_COLORS.length],
-      backgroundColor: AGENT_COLORS[index % AGENT_COLORS.length].replace("1)", "0.15)"),
-      borderWidth: 4,
-      pointRadius: 5,
-      pointHoverRadius: 8,
-      pointHoverBorderWidth: 3,
-      pointBackgroundColor: AGENT_COLORS[index % AGENT_COLORS.length],
-      pointBorderColor: "#FFFFFF",
-      pointBorderWidth: 2,
-      tension: 0.3,
-      fill: true,
-      hitRadius: 40,
+      backgroundColor: AGENT_COLORS[index % AGENT_COLORS.length].replace("1)", "0.2)"),
+      borderWidth: 5, // Thicker lines for better visibility
+      pointRadius: 0, // No points visible
+      pointHoverRadius: 0, // No points on hover
+      pointHoverBorderWidth: 0,
+      pointBackgroundColor: "transparent",
+      pointBorderColor: "transparent",
+      pointBorderWidth: 0,
+      tension: 0.4, // Smoother curves for progressive visualization
+      fill: true, // Filled areas for better visual impact
+      hitRadius: 50, // Larger hit area for easier hovering
       spanGaps: false,
+      stepped: false, // Smooth lines, not stepped
     };
   });
 
@@ -154,9 +155,9 @@ export default function Leaderboard() {
       },
     },
     interaction: {
-      mode: "nearest" as const,
-      intersect: true,
-      axis: "xy" as const,
+      mode: "index" as const, // Show all datasets at same time point
+      intersect: false, // Easier to hover anywhere on line
+      axis: "x" as const, // Only care about x-axis for hover
     },
     onHover: (event: any, activeElements: any, chart: any) => {
       if (activeElements && activeElements.length > 0) {
@@ -166,13 +167,13 @@ export default function Leaderboard() {
           const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
           if (index === activeDatasetIndex) {
             dataset.borderColor = originalColor;
-            dataset.backgroundColor = originalColor.replace("1)", "0.25)");
-            dataset.borderWidth = 5;
-            dataset.pointRadius = 0; // No visible points even on hover
+            dataset.backgroundColor = originalColor.replace("1)", "0.3)");
+            dataset.borderWidth = 7; // Even thicker on hover for emphasis
+            dataset.pointRadius = 0; // Never show points
           } else {
-            dataset.borderColor = originalColor.replace("1)", "0.3)");
+            dataset.borderColor = originalColor.replace("1)", "0.25)");
             dataset.backgroundColor = originalColor.replace("1)", "0.05)");
-            dataset.borderWidth = 2;
+            dataset.borderWidth = 3; // Thinner for inactive lines
             dataset.pointRadius = 0; // No visible points
           }
         });
@@ -182,9 +183,9 @@ export default function Leaderboard() {
         chart.data.datasets.forEach((dataset: any, index: number) => {
           const originalColor = AGENT_COLORS[index % AGENT_COLORS.length];
           dataset.borderColor = originalColor;
-          dataset.backgroundColor = originalColor.replace("1)", "0.15)");
-          dataset.borderWidth = 4;
-          dataset.pointRadius = 0; // No visible points
+          dataset.backgroundColor = originalColor.replace("1)", "0.2)");
+          dataset.borderWidth = 5; // Default thick lines
+          dataset.pointRadius = 0; // No visible points ever
         });
         chart.update('none');
       }
@@ -264,24 +265,29 @@ export default function Leaderboard() {
       },
       y: {
         grid: {
-          color: "rgba(255, 255, 255, 0.15)",
+          color: "rgba(255, 255, 255, 0.2)", // More visible grid lines
           lineWidth: 1,
+          drawBorder: true,
+          borderColor: "rgba(255, 255, 255, 0.3)",
         },
         ticks: {
           color: "#FFFFFF",
           callback: function (value: any) {
-            return "$" + value.toLocaleString();
+            const sign = value >= 0 ? "+" : "";
+            return `${sign}$${value.toFixed(2)}`;
           },
           font: {
             family: "Share Tech Mono, monospace",
-            size: 12,
+            size: 13,
             weight: "bold" as const,
           },
-          stepSize: 5, // Show ticks every $5 for better granularity
+          stepSize: 2, // Show ticks every $2 for better granularity of profit/loss changes
+          precision: 2, // Show 2 decimal places
         },
         beginAtZero: false, // Don't force start at 0, allow better zoom
         suggestedMin: undefined, // Auto-calculate min based on data
         suggestedMax: undefined, // Auto-calculate max based on data
+        grace: "10%", // Add 10% padding above and below data range for better visibility
       },
     },
   };
@@ -306,7 +312,7 @@ export default function Leaderboard() {
         </div>
         <PriceTracker layout="horizontal" />
         <Card className="p-6 bg-card border-card-border">
-          <div className="h-[700px] w-full" data-testid="chart-performance">
+          <div className="h-[800px] w-full" data-testid="chart-performance">
             <Line data={chartData} options={chartOptions} />
           </div>
         </Card>
