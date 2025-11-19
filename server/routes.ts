@@ -28,32 +28,11 @@ function requireTradingAuth(req: any, res: any, next: any) {
     return res.status(500).json({ error: 'Trading control authentication not configured' });
   }
 
-  // Debug logging - show all relevant headers
-  console.log('🔐 Auth check:', {
-    hasApiKey: !!apiKey,
-    apiKeyLength: apiKey.length,
-    secretKeyLength: secretKey.length,
-    match: apiKey === secretKey,
-    allHeaders: Object.keys(req.headers),
-    xTradingApiKey: req.headers['x-trading-api-key'],
-    XTradingApiKey: req.headers['X-Trading-API-Key'],
-    queryApiKey: req.query.apiKey,
-    rawHeaders: req.rawHeaders ? req.rawHeaders.filter((h: string, i: number) => 
-      req.rawHeaders[i] && req.rawHeaders[i].toLowerCase().includes('trading')
-    ) : []
-  });
-
+  // Only log on failure to reduce log noise
   if (!apiKey || apiKey !== secretKey) {
-    console.log('❌ Auth failed:', {
-      providedLength: apiKey.length,
-      expectedLength: secretKey.length,
-      firstCharsMatch: apiKey.substring(0, 4) === secretKey.substring(0, 4),
-      allRequestHeaders: Object.keys(req.headers).join(', ')
-    });
+    console.log('❌ Trading auth failed');
     return res.status(401).json({ error: 'Unauthorized - Invalid API key' });
   }
-
-  console.log('✅ Auth successful');
   next();
 }
 

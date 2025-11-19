@@ -135,8 +135,8 @@ export default function Leaderboard() {
       const snapshot = agentSnapshots.find(
         (s) => new Date(s.timestamp).getTime() === timestamp
       );
-      // Show PnL (starts at 0) - profits/pérdidas
-      return snapshot ? Number(snapshot.totalPnL) : null;
+      // Show PnL (starts at 0) - profits/pérdidas acumulados
+      return snapshot ? Number(snapshot.totalPnL) : 0; // Start at 0 if no data
     });
 
     // Get specific color for this agent
@@ -147,13 +147,13 @@ export default function Leaderboard() {
       data: data,
       borderColor: colors.border,
       backgroundColor: colors.fill,
-      borderWidth: 3, // Clean, visible lines
-      pointRadius: 0, // No points - clean lines only
-      pointHoverRadius: 6, // Show point on hover for better UX
-      pointHoverBorderWidth: 3,
-      pointBackgroundColor: colors.border,
-      pointBorderColor: "#000000",
-      pointBorderWidth: 2,
+      borderWidth: 4, // Thicker, more visible lines
+      pointRadius: 4, // Visible points always
+      pointHoverRadius: 8, // Larger on hover
+      pointHoverBorderWidth: 2,
+      pointBackgroundColor: colors.border, // Same color as line
+      pointBorderColor: colors.border, // No black border
+      pointBorderWidth: 0, // No black border
       tension: 0.4, // Smooth curves
       fill: true, // Filled area under line
       hitRadius: 30, // Good hover area
@@ -193,15 +193,15 @@ export default function Leaderboard() {
           if (index === activeDatasetIndex) {
             // Highlight active line
             dataset.borderColor = colors.border;
-            dataset.backgroundColor = colors.fill.replace("0.15)", "0.25)");
-            dataset.borderWidth = 4;
-            dataset.pointRadius = 6;
+            dataset.backgroundColor = colors.fill.replace("0.15)", "0.3)");
+            dataset.borderWidth = 5;
+            dataset.pointRadius = 8;
           } else {
-            // Dim inactive lines
-            dataset.borderColor = colors.border.replace("1)", "0.3)");
-            dataset.backgroundColor = colors.fill.replace("0.15)", "0.05)");
-            dataset.borderWidth = 2;
-            dataset.pointRadius = 0;
+            // Dim inactive lines slightly
+            dataset.borderColor = colors.border.replace("1)", "0.5)");
+            dataset.backgroundColor = colors.fill.replace("0.15)", "0.08)");
+            dataset.borderWidth = 3;
+            dataset.pointRadius = 3; // Still visible but smaller
           }
         });
         
@@ -213,8 +213,8 @@ export default function Leaderboard() {
           const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
           dataset.borderColor = colors.border;
           dataset.backgroundColor = colors.fill;
-          dataset.borderWidth = 3;
-          dataset.pointRadius = 0;
+          dataset.borderWidth = 4;
+          dataset.pointRadius = 4; // Always visible
         });
         chart.update('none');
       }
@@ -223,17 +223,17 @@ export default function Leaderboard() {
       legend: {
         display: true,
         position: "top" as const,
-        align: "start" as const,
+        align: "center" as const,
         labels: {
-          color: "rgb(255, 255, 255)",
-          usePointStyle: false,
-          padding: 12,
-          boxWidth: 20,
-          boxHeight: 4,
+          color: "rgb(255, 255, 255)", // Bright white text
+          usePointStyle: true, // Use point style for better visibility
+          padding: 15,
+          boxWidth: 12,
+          boxHeight: 12,
           font: {
             family: "Share Tech Mono, monospace",
-            size: 12,
-            weight: "600" as const,
+            size: 14, // Larger font
+            weight: "bold" as const, // Bold for better visibility
           },
           generateLabels: (chart: any) => {
             return chart.data.datasets.map((dataset: any, index: number) => {
@@ -243,7 +243,8 @@ export default function Leaderboard() {
                 text: agentName,
                 fillStyle: colors.border,
                 strokeStyle: colors.border,
-                lineWidth: 3,
+                lineWidth: 4, // Thicker line in legend
+                pointStyle: 'circle',
                 hidden: dataset.hidden || false,
                 index: index,
               };

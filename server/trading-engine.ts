@@ -216,9 +216,8 @@ export class TradingEngine {
         return null;
       }
 
-      // Log which credentials are being used (first 8 chars only for security)
-      const apiKeyPreview = apiKey.substring(0, 8) + "...";
-      console.log(`🔑 ${agent.name} using AsterDex API key: ${apiKeyPreview} (from ${agent.apiKeyRef})`);
+      // Only log credentials on first creation (not every time)
+      // Removed verbose logging to reduce log noise
 
       const client = new AsterDexClient({
         apiKey,
@@ -925,12 +924,10 @@ export class TradingEngine {
                 console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
               }
 
-              // Log balance details for debugging
+              // Log balance details (simplified)
               const availableLog = usdtAsset?.availableBalance ? parseFloat(usdtAsset.availableBalance) : 0;
-              const apiKeyRef = agent.apiKeyRef || "unknown";
-              const apiKeyPreview = process.env[agent.apiKeyRef] ? process.env[agent.apiKeyRef]!.substring(0, 8) + "..." : "missing";
               console.log(
-                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (Available: $${availableLog.toFixed(2)}, ${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)}) [${apiKeyRef}: ${apiKeyPreview}]`
+                `💰 ${agent.name}: $${totalEquity.toFixed(2)} (Avbl: $${availableLog.toFixed(2)}, ${openPositionsCount} pos)`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
