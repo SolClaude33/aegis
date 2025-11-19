@@ -59,16 +59,3 @@ export async function migrateTradingPairs() {
   }
 }
 
-// Run migration if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  migrateTradingPairs()
-    .then(() => {
-      console.log("Migration completed successfully");
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("Migration failed:", error);
-      process.exit(1);
-    });
-}
-
