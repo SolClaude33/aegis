@@ -86,9 +86,15 @@ export default function ControlPanel() {
         return null;
       }
 
+      // Check if response is HTML (404 page) instead of JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(`Expected JSON but got ${contentType || "HTML"}. Is the route registered?`);
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Request error");
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
       return await response.json();

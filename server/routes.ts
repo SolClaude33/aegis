@@ -477,14 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
-  // Only create HTTP server if we're in a traditional server environment
-  // For serverless (Vercel), we don't need a server
-  if (typeof process.env.VERCEL === 'undefined') {
-    const httpServer = createServer(app);
-    return httpServer;
-  }
-  
   // Trading Control Routes (protected with API key)
+  // IMPORTANT: These must be registered BEFORE the serverless check
   const { getTradingEngine } = await import("./trading-engine");
   
   // Get trading status (protected)
@@ -540,6 +534,13 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
     }
   });
 
+  // Only create HTTP server if we're in a traditional server environment
+  // For serverless (Vercel), we don't need a server
+  if (typeof process.env.VERCEL === 'undefined') {
+    const httpServer = createServer(app);
+    return httpServer;
+  }
+  
   // Return undefined for serverless
   return undefined;
 }

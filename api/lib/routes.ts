@@ -478,6 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
   });
 
   // Trading Control Routes (protected with API key)
+  // IMPORTANT: These must be registered BEFORE the serverless check
   const { getTradingEngine } = await import("./trading-engine");
   
   // Get trading status (protected)
