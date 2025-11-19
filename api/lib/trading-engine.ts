@@ -217,8 +217,13 @@ export class TradingEngine {
 
       if (!apiKey || !apiSecret) {
         console.log(`⚠️  Missing API credentials for ${agent.name} - skipping real trading`);
+        console.log(`   Looking for: ${agent.apiKeyRef} and ${agent.apiSecretRef}`);
         return null;
       }
+
+      // Log which credentials are being used (first 8 chars only for security)
+      const apiKeyPreview = apiKey.substring(0, 8) + "...";
+      console.log(`🔑 ${agent.name} using AsterDex API key: ${apiKeyPreview} (from ${agent.apiKeyRef})`);
 
       const client = new AsterDexClient({
         apiKey,
@@ -924,8 +929,10 @@ export class TradingEngine {
 
               // Log balance details for debugging
               const availableLog = usdtAsset?.availableBalance ? parseFloat(usdtAsset.availableBalance) : 0;
+              const apiKeyRef = agent.apiKeyRef || "unknown";
+              const apiKeyPreview = process.env[agent.apiKeyRef] ? process.env[agent.apiKeyRef]!.substring(0, 8) + "..." : "missing";
               console.log(
-                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (Available: $${availableLog.toFixed(2)}, ${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
+                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (Available: $${availableLog.toFixed(2)}, ${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)}) [${apiKeyRef}: ${apiKeyPreview}]`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
