@@ -27,9 +27,9 @@ export class TradingEngine {
     this.runTradingCycle();
     setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
     
-    // Update balances more frequently (every 30 seconds) to reflect positions and PnL faster
+    // Update balances every 60 seconds to reflect positions and PnL (reduced from 30s to avoid rate limits)
     this.updateAgentBalances();
-    setInterval(() => this.updateAgentBalances(), 30 * 1000);
+    setInterval(() => this.updateAgentBalances(), 60 * 1000);
   }
 
   stop() {
@@ -669,53 +669,42 @@ export class TradingEngine {
               // Get full account info which includes total wallet balance (equity)
               const accountInfo = await agentClient.getAccountInfo();
               
-              // Debug: Log full account structure for first agent only to understand AsterDex response
-              if (agent.id === allAgents[0]?.id) {
-                console.log(`🔍 [DEBUG] ${agent.name} accountInfo full response:`, JSON.stringify(accountInfo, null, 2));
-              }
-              
-              // In AsterDex futures, the response has totalWalletBalance at root level (includes unrealized PnL)
-              // This is the total equity = available balance + locked balance + unrealized PnL
+              // In AsterDex futures, the USDT availableBalance is inside assets[] array
+              // This is the actual available balance for trading
               let totalEquity = 0;
               
-              // Try to get totalWalletBalance from root (AsterDex structure)
-              if (accountInfo.totalWalletBalance !== undefined && accountInfo.totalWalletBalance !== null) {
-                totalEquity = parseFloat(accountInfo.totalWalletBalance);
-                console.log(`🔍 [DEBUG] ${agent.name} Using totalWalletBalance: ${totalEquity}`);
-              } else if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null) {
-                // Fallback to totalMarginBalance if totalWalletBalance not available
-                totalEquity = parseFloat(accountInfo.totalMarginBalance);
-                console.log(`🔍 [DEBUG] ${agent.name} Using totalMarginBalance: ${totalEquity}`);
-              } else {
-                // Fallback: calculate from USDT balance
-                const usdtBalance = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
-                                    accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+              // Priority 1: Get availableBalance from USDT asset (this is the correct field)
+              const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                                accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+              
+              if (usdtAsset && usdtAsset.availableBalance) {
+                const available = parseFloat(usdtAsset.availableBalance || "0");
+                const locked = parseFloat(usdtAsset.locked || usdtAsset.walletBalance || "0");
                 
-                if (usdtBalance) {
-                  const available = parseFloat(usdtBalance.availableBalance || usdtBalance.walletBalance || usdtBalance.free || "0");
-                  const locked = parseFloat(usdtBalance.locked || "0");
-                  // Get unrealized PnL from positions if needed
-                  let unrealizedPnL = 0;
-                  try {
-                    const positions = await agentClient.getPositions();
-                    for (const pos of positions) {
-                      const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
-                      if (Math.abs(positionAmt) > 0.000001) {
-                        unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
-                      }
+                // Get unrealized PnL from positions
+                let unrealizedPnL = 0;
+                try {
+                  const positions = await agentClient.getPositions();
+                  for (const pos of positions) {
+                    const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                    if (Math.abs(positionAmt) > 0.000001) {
+                      unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
                     }
-                  } catch {}
-                  totalEquity = available + locked + unrealizedPnL;
-                  console.log(`🔍 [DEBUG] ${agent.name} Calculated from balance: available=${available}, locked=${locked}, unrealizedPnL=${unrealizedPnL}, total=${totalEquity}`);
-                } else {
-                  console.log(`🔍 [DEBUG] ${agent.name} No USDT balance found in accountInfo`);
-                }
+                  }
+                } catch {}
+                
+                // Total equity = available + locked + unrealized PnL
+                totalEquity = available + locked + unrealizedPnL;
+              } else if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
+                // Fallback: use totalMarginBalance if USDT asset not found
+                totalEquity = parseFloat(accountInfo.totalMarginBalance);
+              } else if (accountInfo.totalWalletBalance !== undefined && accountInfo.totalWalletBalance !== null && parseFloat(accountInfo.totalWalletBalance) > 0) {
+                // Last fallback: use totalWalletBalance (but this might be incorrect)
+                totalEquity = parseFloat(accountInfo.totalWalletBalance);
               }
               
               if (totalEquity > 0) {
                 currentBalance = totalEquity;
-              } else {
-                console.log(`⚠️  [DEBUG] ${agent.name} totalEquity is 0 or negative, keeping initialCapital: ${initialCapital}`);
               }
 
               // Get open positions for logging
