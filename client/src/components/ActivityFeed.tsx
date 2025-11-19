@@ -57,6 +57,11 @@ export default function ActivityFeed() {
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span data-testid={`activity-time-${event.id}`}>{timestamp}</span>
+                      {agent && (
+                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                          {agent.name}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-xs" data-testid={`activity-type-${event.id}`}>
                         {event.eventType.replace(/_/g, " ")}
                       </Badge>
