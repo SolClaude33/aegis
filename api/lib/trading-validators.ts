@@ -196,6 +196,10 @@ export class TradingValidator {
 
   /**
    * Validates that the chosen strategy logic makes sense for current market conditions
+   * 
+   * NOTE: This validation is now VERY PERMISSIVE - IAs can trade freely based on their analysis
+   * We only perform basic sanity checks, not strict percentage requirements.
+   * The strategy is a GUIDELINE, not a hard restriction.
    */
   private validateStrategyLogic(
     strategy: StrategyType,
@@ -210,38 +214,26 @@ export class TradingValidator {
 
     const { change24h } = market;
 
-    // Define strategy constraints
-    const strategyRules: Record<StrategyType, { minChange?: number; maxChange?: number }> = {
-      momentum: { minChange: 2 }, // Only buy if price up >2%
-      swing: { maxChange: -5 }, // Only buy if oversold (<-5%)
-      conservative: { minChange: 1, maxChange: 8 }, // Only moderate movements
-      aggressive: { minChange: 8 }, // Only extreme volatility
-      trend_follower: { minChange: 2 }, // Only established trends
-      mean_reversion: { minChange: -8 }, // Only extreme oversold for buy
-    };
-
-    const rules = strategyRules[strategy];
-    if (!rules) {
-      return { isValid: true }; // Unknown strategy, let it through
+    // Very permissive validation - only block extreme edge cases
+    // IAs are free to interpret market conditions based on their strategy
+    
+    // Only block if trying to buy something that's extremely overbought (unlikely scenario)
+    // or sell something extremely oversold (also unlikely)
+    if (action === "BUY" && change24h > 50) {
+      return {
+        isValid: false,
+        reason: `Market appears extremely overbought (+${change24h.toFixed(2)}%), blocking potential bad trade`,
+      };
     }
 
-    // Validate BUY action against strategy rules
-    if (action === "BUY") {
-      if (rules.minChange !== undefined && change24h < rules.minChange) {
-        return {
-          isValid: false,
-          reason: `${strategy} strategy requires price change >= ${rules.minChange}%, got ${change24h.toFixed(2)}%`,
-        };
-      }
-
-      if (rules.maxChange !== undefined && change24h > rules.maxChange) {
-        return {
-          isValid: false,
-          reason: `${strategy} strategy requires price change <= ${rules.maxChange}%, got ${change24h.toFixed(2)}%`,
-        };
-      }
+    if (action === "SELL" && change24h < -50) {
+      return {
+        isValid: false,
+        reason: `Market appears extremely oversold (${change24h.toFixed(2)}%), blocking potential bad trade`,
+      };
     }
 
+    // All other trades are allowed - IAs have freedom to interpret their strategy
     return { isValid: true };
   }
 }
