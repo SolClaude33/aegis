@@ -631,18 +631,49 @@ export class TradingEngine {
               // Get full account info which includes total wallet balance (equity)
               const accountInfo = await agentClient.getAccountInfo();
               
-              // In futures, walletBalance should be the total equity (balance + unrealized PnL)
-              // Get USDT balance - walletBalance includes unrealized PnL already
-              const usdtBalance = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
-                                  accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+              // Debug: Log account structure for first agent only
+              if (agent.id === allAgents[0]?.id) {
+                console.log(`🔍 [DEBUG] ${agent.name} accountInfo keys:`, Object.keys(accountInfo));
+                if (accountInfo.assets?.length) {
+                  const usdt = accountInfo.assets.find((a: any) => a.asset === "USDT");
+                  if (usdt) console.log(`🔍 [DEBUG] USDT asset:`, usdt);
+                }
+              }
               
-              // Use walletBalance which includes unrealized PnL from open positions
-              const walletBalanceValue = usdtBalance?.walletBalance || usdtBalance?.balance || usdtBalance?.availableBalance || usdtBalance?.free || "0";
+              // In AsterDex futures, the response has totalWalletBalance at root level (includes unrealized PnL)
+              // This is the total equity = available balance + locked balance + unrealized PnL
               let totalEquity = 0;
               
-              if (usdtBalance && parseFloat(walletBalanceValue) >= 0) {
-                // walletBalance in futures already includes unrealized PnL
-                totalEquity = parseFloat(walletBalanceValue);
+              // Try to get totalWalletBalance from root (AsterDex structure)
+              if (accountInfo.totalWalletBalance !== undefined) {
+                totalEquity = parseFloat(accountInfo.totalWalletBalance);
+              } else if (accountInfo.totalMarginBalance !== undefined) {
+                // Fallback to totalMarginBalance if totalWalletBalance not available
+                totalEquity = parseFloat(accountInfo.totalMarginBalance);
+              } else {
+                // Fallback: calculate from USDT balance
+                const usdtBalance = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                                    accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+                
+                if (usdtBalance) {
+                  const available = parseFloat(usdtBalance.availableBalance || usdtBalance.free || "0");
+                  const locked = parseFloat(usdtBalance.locked || "0");
+                  // Get unrealized PnL from positions if needed
+                  let unrealizedPnL = 0;
+                  try {
+                    const positions = await agentClient.getPositions();
+                    for (const pos of positions) {
+                      const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                      if (Math.abs(positionAmt) > 0.000001) {
+                        unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                      }
+                    }
+                  } catch {}
+                  totalEquity = available + locked + unrealizedPnL;
+                }
+              }
+              
+              if (totalEquity > 0) {
                 currentBalance = totalEquity;
               }
 
@@ -665,9 +696,9 @@ export class TradingEngine {
                 console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
               }
 
-              // Use walletBalance as it already includes everything (balance + unrealized PnL)
+              // Use totalEquity which is the total wallet balance including unrealized PnL
               console.log(
-                `💰 ${agent.name}: Wallet Balance (Equity) $${totalEquity.toFixed(2)} (${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
+                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
