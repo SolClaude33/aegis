@@ -57,7 +57,7 @@ app.use((req, res, next) => {
     console.error('⚠️  Trading pairs migration failed:', error);
   }
   
-  // Migrate initial capital to $20
+  // Migrate initial capital to $100
   try {
     await migrateInitialCapital();
   } catch (error) {

@@ -832,7 +832,7 @@ export class TradingEngine {
       for (const agent of allAgents) {
         try {
           const agentClient = this.getAgentClient(agent);
-          // Get the current initialCapital from database (should be $20 after migration)
+          // Get the current initialCapital from database (should be $100 after migration)
           const initialCapital = parseFloat(agent.initialCapital);
           let currentBalance = initialCapital;
 
@@ -942,7 +942,7 @@ export class TradingEngine {
             }
           }
 
-          // Calculate PnL based on current balance vs initial capital ($20)
+          // Calculate PnL based on current balance vs initial capital ($100)
           const pnl = currentBalance - initialCapital;
           const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
 

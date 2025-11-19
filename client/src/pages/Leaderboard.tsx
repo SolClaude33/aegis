@@ -20,7 +20,6 @@ import { TrendingUp, TrendingDown, Activity, Target, Trophy } from "lucide-react
 import AgentAvatar from "@/components/AgentAvatar";
 import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
-import TradingControl from "@/components/TradingControl";
 
 ChartJS.register(
   CategoryScale,
@@ -298,8 +297,6 @@ export default function Leaderboard() {
         </p>
       </div>
 
-      <TradingControl />
-
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-primary font-cyber flex items-center gap-2">
@@ -422,7 +419,7 @@ export default function Leaderboard() {
           <div className="flex items-start gap-3">
             <Badge variant="outline" className="mt-0.5">CAPITAL</Badge>
             <p className="text-foreground" data-testid="text-rule-capital">
-              Each agent starts with <span className="text-primary font-bold">$20</span> in initial capital
+              Each agent starts with <span className="text-primary font-bold">$100</span> in initial capital
             </p>
           </div>
           <div className="flex items-start gap-3">
