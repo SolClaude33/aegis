@@ -438,7 +438,8 @@ export class OpenAICompatibleClient implements LLMClient {
     this.client = new OpenAI({ 
       apiKey: normalizedKey, 
       baseURL,
-      // DashScope may require defaultHeaders, but OpenAI SDK handles this automatically
+      // For Qwen/DashScope, use international endpoint if outside mainland China
+      // The SDK automatically handles Authorization header with Bearer token
     });
     this.model = model;
     this.providerName = providerName;
