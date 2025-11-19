@@ -478,6 +478,12 @@ export class OpenAICompatibleClient implements LLMClient {
           console.error(`[Qwen] Get API key from: https://dashscope.console.aliyun.com/`);
         }
       }
+      if (error?.status === 403 || error?.message?.includes('403') || error?.message?.includes('Access to model denied')) {
+        console.error(`[${this.providerName}] Model access denied: The model may require special permissions`);
+        if (this.providerName === 'Qwen') {
+          console.error(`[Qwen] Using qwen-turbo (publicly available). If you have access to qwen-max, you can change it in the code`);
+        }
+      }
       console.error(`[${this.providerName}] Error analyzing market:`, error?.message || error);
       return this.getDefaultDecision(`Error calling ${this.providerName} API`);
     }
@@ -586,7 +592,8 @@ export function getLLMClientForAgent(agentName: string): LLMClient | null {
       provider: "Qwen",
       // Use international endpoint for users outside mainland China
       baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-      model: "qwen-max",
+      // qwen-turbo is publicly available, qwen-max requires special access
+      model: "qwen-turbo",
     },
     "Gemini-2": { 
       keyVar: "LLM_GEMINI2_API_KEY", 
