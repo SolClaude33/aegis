@@ -636,27 +636,40 @@ export class TradingEngine {
               let totalEquity = 0;
               
               // Priority 1: Get availableBalance from USDT asset (this is the correct field)
+              // This is the actual available balance shown in AsterDex UI
               const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
                                 accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
               
               if (usdtAsset && usdtAsset.availableBalance) {
+                // availableBalance is the actual usable balance in AsterDex
+                // It already accounts for locked funds and positions
                 const available = parseFloat(usdtAsset.availableBalance || "0");
-                const locked = parseFloat(usdtAsset.locked || usdtAsset.walletBalance || "0");
                 
-                // Get unrealized PnL from positions
+                // Get open positions to check if there are any
+                let hasOpenPositions = false;
                 let unrealizedPnL = 0;
                 try {
                   const positions = await agentClient.getPositions();
                   for (const pos of positions) {
                     const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
                     if (Math.abs(positionAmt) > 0.000001) {
+                      hasOpenPositions = true;
                       unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
                     }
                   }
                 } catch {}
                 
-                // Total equity = available + locked + unrealized PnL
-                totalEquity = available + locked + unrealizedPnL;
+                // In AsterDex futures:
+                // - If NO open positions: availableBalance IS the total equity (matches UI)
+                // - If HAS open positions: total equity = availableBalance + unrealizedPnL
+                if (hasOpenPositions && Math.abs(unrealizedPnL) > 0.0001) {
+                  // Has open positions: add unrealized PnL to get total equity
+                  totalEquity = available + unrealizedPnL;
+                } else {
+                  // No open positions: availableBalance is exactly the total equity
+                  // This matches "Avbl 20.44 USDT" shown in AsterDex UI
+                  totalEquity = available;
+                }
               } else if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
                 // Fallback: use totalMarginBalance if USDT asset not found
                 totalEquity = parseFloat(accountInfo.totalMarginBalance);
@@ -688,9 +701,10 @@ export class TradingEngine {
                 console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
               }
 
-              // Use totalEquity which is the total wallet balance including unrealized PnL
+              // Log balance details for debugging
+              const availableLog = usdtAsset?.availableBalance ? parseFloat(usdtAsset.availableBalance) : 0;
               console.log(
-                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
+                `💰 ${agent.name}: Total Equity $${totalEquity.toFixed(2)} (Available: $${availableLog.toFixed(2)}, ${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);

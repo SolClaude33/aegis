@@ -168,12 +168,12 @@ export default function Leaderboard() {
             dataset.borderColor = originalColor;
             dataset.backgroundColor = originalColor.replace("1)", "0.25)");
             dataset.borderWidth = 5;
-            dataset.pointRadius = 7;
+            dataset.pointRadius = 0; // No visible points even on hover
           } else {
             dataset.borderColor = originalColor.replace("1)", "0.3)");
             dataset.backgroundColor = originalColor.replace("1)", "0.05)");
             dataset.borderWidth = 2;
-            dataset.pointRadius = 3;
+            dataset.pointRadius = 0; // No visible points
           }
         });
         
@@ -184,7 +184,7 @@ export default function Leaderboard() {
           dataset.borderColor = originalColor;
           dataset.backgroundColor = originalColor.replace("1)", "0.15)");
           dataset.borderWidth = 4;
-          dataset.pointRadius = 5;
+          dataset.pointRadius = 0; // No visible points
         });
         chart.update('none');
       }

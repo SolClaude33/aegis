@@ -6,6 +6,7 @@ import { initializeDatabase } from "./init-db";
 import { migrateTradingPairs } from "./migrate-trading-pairs";
 import { migrateInitialCapital } from "./migrate-initial-capital";
 import { migrateRemoveLlama } from "./migrate-remove-llama";
+import { migrateResetPerformance } from "./migrate-reset-performance";
 
 const app = express();
 app.use(express.json());
@@ -68,6 +69,13 @@ app.use((req, res, next) => {
     await migrateRemoveLlama();
   } catch (error) {
     console.error('⚠️  Llama removal migration failed:', error);
+  }
+  
+  // Reset performance snapshots to start chart fresh
+  try {
+    await migrateResetPerformance();
+  } catch (error) {
+    console.error('⚠️  Performance reset migration failed:', error);
   }
   
   await seedDatabase();
