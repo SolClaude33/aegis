@@ -1005,6 +1005,7 @@ export class TradingEngine {
       const agentClient = this.getAgentClient(agentData);
       const initialCapital = parseFloat(agentData.initialCapital);
       let currentBalance = parseFloat(agentData.currentCapital);
+      let balanceSource = "database"; // Track where balance comes from
       
       // Get real balance from AsterDex if available
       if (agentClient) {
@@ -1032,13 +1033,23 @@ export class TradingEngine {
             
             if (hasOpenPositions && Math.abs(unrealizedPnL) > 0.0001) {
               currentBalance = available + unrealizedPnL;
-            } else {
+              balanceSource = "asterdex_with_positions";
+            } else if (available > 0) {
               currentBalance = available;
+              balanceSource = "asterdex";
             }
+            // Only use AsterDex balance if we got valid data
           }
         } catch (error) {
-          // Use currentCapital from database if API fails
+          // If API fails, use currentCapital from database (already set above)
+          console.log(`⚠️  Could not fetch balance from AsterDex for snapshot, using database value for agent ${agentId}`);
         }
+      }
+      
+      // Don't create snapshot if balance is invalid (0 or negative)
+      if (currentBalance <= 0 || isNaN(currentBalance)) {
+        console.log(`⚠️  Skipping snapshot for agent ${agentId}: invalid balance ${currentBalance} (source: ${balanceSource})`);
+        return;
       }
 
       // Calculate PnL

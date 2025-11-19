@@ -132,12 +132,35 @@ export default function Leaderboard() {
 
   const datasets = agents.map((agent) => {
     const agentSnapshots = groupedData[agent.id] || [];
+    // Sort snapshots by timestamp
+    agentSnapshots.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    let lastKnownPnL = 0; // Track last known PnL value
     const data = allTimestamps.map((timestamp) => {
-      const snapshot = agentSnapshots.find(
+      // Find exact snapshot for this timestamp, or find the most recent one before this timestamp
+      const exactSnapshot = agentSnapshots.find(
         (s) => new Date(s.timestamp).getTime() === timestamp
       );
-      // Show PnL (starts at 0) - profits/pérdidas acumulados
-      return snapshot ? Number(snapshot.totalPnL) : 0; // Start at 0 if no data
+      
+      if (exactSnapshot) {
+        lastKnownPnL = Number(exactSnapshot.totalPnL);
+        return lastKnownPnL;
+      }
+      
+      // If no exact match, find the most recent snapshot before this timestamp
+      const previousSnapshots = agentSnapshots.filter(
+        (s) => new Date(s.timestamp).getTime() <= timestamp
+      );
+      
+      if (previousSnapshots.length > 0) {
+        // Use the most recent snapshot before this timestamp
+        const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
+        lastKnownPnL = Number(lastSnapshot.totalPnL);
+        return lastKnownPnL;
+      }
+      
+      // If no previous snapshot exists, return null (Chart.js will handle it)
+      return null;
     });
 
     // Get specific color for this agent
@@ -158,7 +181,7 @@ export default function Leaderboard() {
       tension: 0.4, // Smooth curves
       fill: true, // Filled area under line
       hitRadius: 30, // Good hover area
-      spanGaps: false,
+      spanGaps: true, // Connect lines across gaps to prevent sharp drops
       stepped: false,
     };
   });
