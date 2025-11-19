@@ -137,7 +137,7 @@ AVAILABLE STRATEGIES:
 ${strategiesDesc}
 
 RISK LIMITS (ENFORCED):
-- Max position size: 30% of capital per trade
+- Max position size: 50% of capital per trade
 - Max loss per trade: 5%
 - Max 3 trades per 2-minute cycle
 
@@ -146,7 +146,7 @@ Analyze the market and decide:
 1. Which action: BUY, SELL, or HOLD
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD)
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
-4. Position size as % of capital: 0-30 (or 0 if HOLD)
+4. Position size as % of capital: 0-50 (or 0 if HOLD)
 5. Your reasoning (concise)
 6. Confidence level: 0.0-1.0
 
@@ -155,7 +155,7 @@ Respond ONLY with valid JSON:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-30,
+  "positionSizePercent": 0-50,
   "reasoning": "your analysis",
   "confidence": 0.0-1.0
 }`;
@@ -172,7 +172,7 @@ Respond ONLY with valid JSON:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 30),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -259,7 +259,7 @@ AVAILABLE STRATEGIES:
 ${strategiesDesc}
 
 CONSTRAINTS:
-- Max 30% position size per trade
+- Max 50% position size per trade
 - Max 5% loss per trade
 - Max 3 trades per cycle
 
@@ -270,7 +270,7 @@ Respond with ONLY valid JSON:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-30,
+  "positionSizePercent": 0-50,
   "reasoning": "brief explanation",
   "confidence": 0.0-1.0
 }`;
@@ -290,7 +290,7 @@ Respond with ONLY valid JSON:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 30),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -377,7 +377,7 @@ STRATEGIES:
 ${strategiesDesc}
 
 RULES:
-- Max 30% per position
+- Max 50% per position
 - Max 5% loss per trade
 - Choose best strategy for current conditions
 
@@ -386,7 +386,7 @@ Return JSON only:
   "action": "BUY" | "SELL" | "HOLD",
   "asset": "SOL" | "ETH" | "BTC" | "BNB" | "DOGE" | null,
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-30,
+  "positionSizePercent": 0-50,
   "reasoning": "why",
   "confidence": 0.0-1.0
 }`;
@@ -402,7 +402,7 @@ Return JSON only:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 30),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
@@ -492,14 +492,14 @@ ${marketsDesc}
 Strategies:
 ${strategiesDesc}
 
-Decide: action, asset, strategy, position size (0-30%), reasoning, confidence.
+Decide: action, asset, strategy, position size (0-50%), reasoning, confidence.
 
 JSON only:
 {
   "action": "BUY"|"SELL"|"HOLD",
   "asset": "SOL"|"ETH"|"BTC"|"BNB"|"DOGE"|null,
   "strategy": "momentum"|"swing"|"conservative"|"aggressive"|"trend_follower"|"mean_reversion"|null,
-  "positionSizePercent": 0-30,
+  "positionSizePercent": 0-50,
   "reasoning": "why",
   "confidence": 0.0-1.0
 }`;
@@ -519,7 +519,7 @@ JSON only:
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 30),
+        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 50),
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };

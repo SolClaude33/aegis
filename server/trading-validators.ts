@@ -19,10 +19,10 @@ export interface ValidationResult {
 }
 
 // Risk limits constants
-const MAX_POSITION_SIZE_PERCENT = 30; // Max 30% of capital per position
+const MAX_POSITION_SIZE_PERCENT = 50; // Max 50% of capital per position
 const MAX_LOSS_PER_TRADE_PERCENT = 5; // Max 5% loss per trade
 const MAX_TRADES_PER_CYCLE = 3; // Max 3 trades per 2-minute cycle
-const MIN_CAPITAL_TO_TRADE = 5; // Minimum $5 to place a trade
+const MIN_CAPITAL_TO_TRADE = 7; // Minimum $7 to place a trade
 
 /**
  * Validates that the LLM decision complies with risk management rules
@@ -135,7 +135,7 @@ export class TradingValidator {
     
     // If trade amount is below minimum, try to adjust position size to meet minimum
     if (tradeAmount < MIN_CAPITAL_TO_TRADE) {
-      // Calculate minimum position size needed to reach $5
+      // Calculate minimum position size needed to reach $7
       const minPositionSizePercent = (MIN_CAPITAL_TO_TRADE / context.agentCapital) * 100;
       
       // If we can meet minimum without exceeding max, adjust

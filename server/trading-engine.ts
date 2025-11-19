@@ -386,10 +386,10 @@ export class TradingEngine {
       return;
     }
 
-    // For BUY orders, ensure notional (quantity * price) meets minimum $5 requirement
-    // After normalization, the notional might be less than $5 due to rounding down
+    // For BUY orders, ensure notional (quantity * price) meets minimum $7 requirement
+    // After normalization, the notional might be less than $7 due to rounding down
     if (decision.action === "BUY") {
-      const MIN_NOTIONAL = 5.0;
+      const MIN_NOTIONAL = 7.0;
       let notional = normalizedQuantity * marketPrice;
       
       // If notional is below minimum, increase quantity by one precision step
@@ -548,7 +548,7 @@ export class TradingEngine {
       return;
     }
 
-    // Check max position size (only for BUY orders - 30% limit)
+    // Check max position size (only for BUY orders - 50% limit)
     if (signal.action === "BUY") {
       const potentialPosition = currentPosition + (signal.quantity || 0);
       const potentialValue = potentialPosition * marketPrice;
