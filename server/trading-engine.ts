@@ -655,7 +655,9 @@ export class TradingEngine {
       for (const agent of allAgents) {
         try {
           const agentClient = this.getAgentClient(agent);
-          let currentBalance = parseFloat(agent.initialCapital);
+          // Get the current initialCapital from database (should be $20 after migration)
+          const initialCapital = parseFloat(agent.initialCapital);
+          let currentBalance = initialCapital;
 
           // Try to get real balance from AsterDex
           if (agentClient) {
@@ -675,7 +677,7 @@ export class TradingEngine {
           }
 
           // Fallback: Calculate current balance based on executed trades
-          if (!agentClient || currentBalance === parseFloat(agent.initialCapital)) {
+          if (!agentClient || currentBalance === initialCapital) {
             const orders = await db
               .select()
               .from(asterdexOrders)
@@ -694,16 +696,17 @@ export class TradingEngine {
             }
           }
 
+          // Calculate PnL based on current balance vs initial capital ($20)
+          const pnl = currentBalance - initialCapital;
+          const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
+
           // Update agent
           await db
             .update(agents)
             .set({
               currentCapital: currentBalance.toFixed(2),
-              totalPnL: (currentBalance - parseFloat(agent.initialCapital)).toFixed(2),
-              totalPnLPercentage: (
-                ((currentBalance - parseFloat(agent.initialCapital)) / parseFloat(agent.initialCapital)) *
-                100
-              ).toFixed(2),
+              totalPnL: pnl.toFixed(2),
+              totalPnLPercentage: pnlPercentage.toFixed(2),
               updatedAt: new Date(),
             })
             .where(eq(agents.id, agent.id));
@@ -712,11 +715,8 @@ export class TradingEngine {
           await db.insert(performanceSnapshots).values({
             agentId: agent.id,
             accountValue: currentBalance.toFixed(2),
-            totalPnL: (currentBalance - parseFloat(agent.initialCapital)).toFixed(2),
-            totalPnLPercentage: (
-              ((currentBalance - parseFloat(agent.initialCapital)) / parseFloat(agent.initialCapital)) *
-              100
-            ).toFixed(2),
+            totalPnL: pnl.toFixed(2),
+            totalPnLPercentage: pnlPercentage.toFixed(2),
             openPositions: 0, // TODO: Calculate from positions
           });
         } catch (error) {

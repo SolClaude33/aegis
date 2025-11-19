@@ -64,6 +64,7 @@ const AGENT_COLORS = [
 export default function Leaderboard() {
   const { data: agents, isLoading: agentsLoading } = useQuery<Agent[]>({
     queryKey: ["/api/agents"],
+    refetchInterval: 10000, // Refresh every 10 seconds to show updated balances and PnL
   });
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery<PerformanceSnapshot[]>({
