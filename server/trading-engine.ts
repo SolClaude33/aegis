@@ -26,6 +26,10 @@ export class TradingEngine {
     // Run trading cycle every 2 minutes
     this.runTradingCycle();
     setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
+    
+    // Update balances more frequently (every 30 seconds) to reflect positions and PnL faster
+    this.updateAgentBalances();
+    setInterval(() => this.updateAgentBalances(), 30 * 1000);
   }
 
   stop() {
@@ -662,21 +666,26 @@ export class TradingEngine {
           // Try to get real balance and positions from AsterDex
           if (agentClient) {
             try {
-              // Get account info (balances)
-              const balances = await agentClient.getAccount();
-              // Find USDT or USDC balance (the quote currency)
-              const usdtBalance = balances.find((b) => b.asset === "USDT" || b.asset === "USDC");
-              // AsterDex returns availableBalance or walletBalance, not free
-              const balanceValue = usdtBalance?.availableBalance || usdtBalance?.walletBalance || usdtBalance?.free || "0";
-              let usdtBalanceAmount = 0;
+              // Get full account info which includes total wallet balance (equity)
+              const accountInfo = await agentClient.getAccountInfo();
               
-              if (usdtBalance && parseFloat(balanceValue) >= 0) {
-                usdtBalanceAmount = parseFloat(balanceValue);
+              // In futures, walletBalance should be the total equity (balance + unrealized PnL)
+              // Get USDT balance - walletBalance includes unrealized PnL already
+              const usdtBalance = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                                  accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+              
+              // Use walletBalance which includes unrealized PnL from open positions
+              const walletBalanceValue = usdtBalance?.walletBalance || usdtBalance?.balance || usdtBalance?.availableBalance || usdtBalance?.free || "0";
+              let totalEquity = 0;
+              
+              if (usdtBalance && parseFloat(walletBalanceValue) >= 0) {
+                // walletBalance in futures already includes unrealized PnL
+                totalEquity = parseFloat(walletBalanceValue);
+                currentBalance = totalEquity;
               }
 
-              // Get open positions and calculate total value (entry value + unrealized PnL)
-              let positionsValue = 0; // Total value of open positions (entry + PnL)
-              let unrealizedPnL = 0; // Just the PnL portion
+              // Get open positions for logging
+              let unrealizedPnL = 0;
               let openPositionsCount = 0;
               try {
                 const positions = await agentClient.getPositions();
@@ -685,33 +694,18 @@ export class TradingEngine {
                   const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
                   if (Math.abs(positionAmt) > 0.000001) {
                     openPositionsCount++;
-                    
-                    // Entry price and current mark price
-                    const entryPrice = parseFloat(pos.entryPrice || "0");
-                    const markPrice = parseFloat(pos.markPrice || pos.currentPrice || entryPrice);
-                    
-                    // Value of position at entry (initial investment)
-                    const entryValue = Math.abs(positionAmt * entryPrice);
-                    
                     // Unrealized PnL (already in USDT)
                     const unrealized = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
                     unrealizedPnL += unrealized;
-                    
-                    // Total value = entry value + unrealized PnL
-                    // This represents the current value if position were closed now
-                    positionsValue += entryValue + unrealized;
                   }
                 }
               } catch (posError) {
                 console.log(`⚠️  Could not fetch positions for ${agent.name} from AsterDex`);
               }
 
-              // Total capital = USDT balance + Total value of open positions (entry + PnL)
-              // The positionsValue already includes both the initial investment and unrealized PnL
-              currentBalance = usdtBalanceAmount + positionsValue;
-              
+              // Use walletBalance as it already includes everything (balance + unrealized PnL)
               console.log(
-                `💰 ${agent.name}: Balance $${usdtBalanceAmount.toFixed(2)} + Positions Value $${positionsValue.toFixed(2)} (${openPositionsCount} pos, PnL: $${unrealizedPnL.toFixed(2)}) = Total $${currentBalance.toFixed(2)}`
+                `💰 ${agent.name}: Wallet Balance (Equity) $${totalEquity.toFixed(2)} (${openPositionsCount} pos, Unrealized PnL: $${unrealizedPnL.toFixed(2)})`
               );
             } catch (error) {
               console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
