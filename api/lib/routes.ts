@@ -19,18 +19,36 @@ import { eq, desc, sql, and, inArray } from "drizzle-orm";
 
 // Middleware to authenticate trading control endpoints
 function requireTradingAuth(req: any, res: any, next: any) {
-  const apiKey = req.headers['x-trading-api-key'] || req.query.apiKey;
-  const secretKey = process.env.TRADING_CONTROL_API_KEY;
+  // Express normalizes headers to lowercase, so check both cases
+  const apiKey = (req.headers['x-trading-api-key'] || req.headers['X-Trading-API-Key'] || req.query.apiKey || '').toString().trim();
+  const secretKey = (process.env.TRADING_CONTROL_API_KEY || '').trim();
 
   if (!secretKey) {
     console.error('⚠️  TRADING_CONTROL_API_KEY not set in environment variables');
     return res.status(500).json({ error: 'Trading control authentication not configured' });
   }
 
+  // Debug logging (remove in production if sensitive)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🔐 Auth check:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey.length,
+      secretKeyLength: secretKey.length,
+      match: apiKey === secretKey,
+      headers: Object.keys(req.headers).filter(k => k.toLowerCase().includes('trading'))
+    });
+  }
+
   if (!apiKey || apiKey !== secretKey) {
+    console.log('❌ Auth failed:', {
+      providedLength: apiKey.length,
+      expectedLength: secretKey.length,
+      firstCharsMatch: apiKey.substring(0, 4) === secretKey.substring(0, 4)
+    });
     return res.status(401).json({ error: 'Unauthorized - Invalid API key' });
   }
 
+  console.log('✅ Auth successful');
   next();
 }
 
