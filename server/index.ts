@@ -5,6 +5,7 @@ import { seedDatabase } from "./seed";
 import { initializeDatabase } from "./init-db";
 import { migrateTradingPairs } from "./migrate-trading-pairs";
 import { migrateInitialCapital } from "./migrate-initial-capital";
+import { migrateRemoveLlama } from "./migrate-remove-llama";
 
 const app = express();
 app.use(express.json());
@@ -60,6 +61,13 @@ app.use((req, res, next) => {
     await migrateInitialCapital();
   } catch (error) {
     console.error('⚠️  Initial capital migration failed:', error);
+  }
+  
+  // Remove Llama-3.1 agent (API not working)
+  try {
+    await migrateRemoveLlama();
+  } catch (error) {
+    console.error('⚠️  Llama removal migration failed:', error);
   }
   
   await seedDatabase();

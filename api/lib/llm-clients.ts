@@ -424,21 +424,20 @@ Return JSON only:
   }
 }
 
-// OpenAI-compatible clients (xAI Grok, DeepSeek, Qwen)
+// OpenAI-compatible clients (xAI Grok, DeepSeek)
 export class OpenAICompatibleClient implements LLMClient {
   private client: OpenAI;
   private model: string;
   private providerName: string;
 
   constructor(apiKey: string, baseURL: string, model: string, providerName: string) {
-    // Qwen/DashScope uses standard OpenAI-compatible format
+    // OpenAI-compatible format
     // API key should be in format: sk-xxxxx or just the key string
     const normalizedKey = apiKey.trim();
     
     this.client = new OpenAI({ 
       apiKey: normalizedKey, 
       baseURL,
-      // For Qwen/DashScope, use international endpoint if outside mainland China
       // The SDK automatically handles Authorization header with Bearer token
     });
     this.model = model;
@@ -473,16 +472,9 @@ export class OpenAICompatibleClient implements LLMClient {
       // Better error logging for debugging
       if (error?.status === 401 || error?.message?.includes('401') || error?.message?.includes('Incorrect API key')) {
         console.error(`[${this.providerName}] Authentication failed: Check API key in environment variable`);
-        if (this.providerName === 'Qwen') {
-          console.error(`[Qwen] Make sure LLM_LLAMA31_API_KEY is set correctly in Railway`);
-          console.error(`[Qwen] Get API key from: https://dashscope.console.aliyun.com/`);
-        }
       }
       if (error?.status === 403 || error?.message?.includes('403') || error?.message?.includes('Access to model denied')) {
         console.error(`[${this.providerName}] Model access denied: The model may require special permissions`);
-        if (this.providerName === 'Qwen') {
-          console.error(`[Qwen] Using qwen-turbo (publicly available). If you have access to qwen-max, you can change it in the code`);
-        }
       }
       console.error(`[${this.providerName}] Error analyzing market:`, error?.message || error);
       return this.getDefaultDecision(`Error calling ${this.providerName} API`);
@@ -587,14 +579,6 @@ export function getLLMClientForAgent(agentName: string): LLMClient | null {
       baseURL: "https://api.x.ai/v1",
       model: "grok-3",
     },
-    "Llama-3.1": { 
-      keyVar: "LLM_LLAMA31_API_KEY", 
-      provider: "Qwen",
-      // Use international endpoint for users outside mainland China
-      baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-      // qwen-turbo is publicly available, qwen-max requires special access
-      model: "qwen-turbo",
-    },
     "Gemini-2": { 
       keyVar: "LLM_GEMINI2_API_KEY", 
       provider: "Google",
@@ -622,7 +606,6 @@ export function getLLMClientForAgent(agentName: string): LLMClient | null {
       return new GeminiClient(apiKey);
     case "DeepSeek":
     case "xAI":
-    case "Qwen":
       return new OpenAICompatibleClient(
         apiKey,
         config.baseURL!,
