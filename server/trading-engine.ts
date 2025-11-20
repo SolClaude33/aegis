@@ -619,6 +619,7 @@ export class TradingEngine {
         entryPrice,
         currentPrice,
         unrealizedPnL,
+        side: pos.side as "LONG" | "SHORT",
       };
     });
 

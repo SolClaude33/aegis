@@ -57,6 +57,7 @@ export interface LLMAnalysisContext {
     entryPrice: number;
     currentPrice: number;
     unrealizedPnL: number;
+    side?: "LONG" | "SHORT"; // Position direction
   }[];
   marketData: (MarketData & { symbol: SupportedCrypto })[];
   previousDecisions?: string[]; // Last 3 decisions for context
@@ -301,7 +302,7 @@ export class AnthropicClient implements LLMClient {
 
     const positionsDesc = context.openPositions.length > 0
       ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
+          `${p.asset}: ${p.size.toFixed(4)} units ${p.side || 'LONG'} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
         ).join("\n")
       : "No open positions";
 
@@ -322,10 +323,18 @@ IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET
 - Momentum strategy can work with smaller gains if trend is strong
 - Swing trading can work with smaller drops if asset shows support
 - Conservative strategy can adapt to current market conditions
-- Be PROACTIVE when FINDING opportunities (BUY) - don't wait for perfect conditions
-- Be PATIENT when MANAGING positions (SELL) - positions need time to develop. Don't sell on minor fluctuations
-- Only SELL when: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
+- Be PROACTIVE when FINDING opportunities (both LONG and SHORT) - don't wait for perfect conditions
+- Be PATIENT when MANAGING positions - positions need time to develop. Don't close too quickly on minor fluctuations
+- Only close positions when: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
 - Small PnL fluctuations (-1% to +1%) are normal - let positions develop
+
+TRADING DIRECTIONS EXPLAINED:
+- LONG position (BUY when no position): You profit if the asset price goes UP. Use when you expect upward movement.
+- SHORT position (SELL when no position): You profit if the asset price goes DOWN. Use when you expect downward movement.
+- Closing LONG: SELL to close a LONG position (you profit if price went UP)
+- Closing SHORT: BUY to close a SHORT position (you profit if price went DOWN)
+
+You can trade BOTH directions! If you think an asset will go DOWN, use SELL to open a SHORT. If you think it will go UP, use BUY to open a LONG.
 
 CONSTRAINTS:
 - Max 25% position size per trade (margin) - per asset
@@ -336,16 +345,17 @@ CONSTRAINTS:
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TASK:
-Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
+Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
 
-SELL Guidelines:
-- Only SELL if: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
+Position Management Guidelines:
+- Only close positions if: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
 - Small PnL fluctuations (-1% to +1%) are normal - let positions develop
-- Don't sell too quickly on minor market movements
+- Don't close too quickly on minor market movements
 
 Remember: 
-- Be PROACTIVE to FIND opportunities (BUY), but PATIENT to DEVELOP positions (SELL only when necessary)
-- You're competing against other AIs, but premature selling can hurt performance
+- Be PROACTIVE to FIND opportunities (both LONG and SHORT), but PATIENT to DEVELOP positions
+- You can profit from BOTH upward (LONG) and downward (SHORT) movements!
+- You're competing against other AIs, but premature closing can hurt performance
 - You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond with ONLY valid JSON:
@@ -559,10 +569,13 @@ RISK LIMITS (ENFORCED):
 - Minimum trade: $7 margin
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
-CRITICAL TRADING RULES:
-- You can ONLY SELL an asset if you have an OPEN POSITION in that asset. Check your "Open Positions" above before deciding to SELL.
-- If you have no position in an asset, you can only BUY or HOLD, never SELL.
-- To close a position, you must SELL the same asset you bought. You cannot sell an asset you don't own.
+TRADING DIRECTIONS EXPLAINED:
+- LONG position (BUY when no position): You profit if the asset price goes UP. Use when you expect upward movement.
+- SHORT position (SELL when no position): You profit if the asset price goes DOWN. Use when you expect downward movement.
+- Closing LONG: SELL to close a LONG position (you profit if price went UP)
+- Closing SHORT: BUY to close a SHORT position (you profit if price went DOWN)
+
+You can trade BOTH directions! If you think an asset will go DOWN, use SELL to open a SHORT. If you think it will go UP, use BUY to open a LONG.
 
 TASK:
 Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze the market and decide:
