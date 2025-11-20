@@ -39,8 +39,13 @@ export default function AgentDetail() {
     enabled: !!agentId,
   });
 
-  const { data: trades, isLoading: tradesLoading } = useQuery<Trade[]>({
-    queryKey: ["/api/trades/agent", agentId],
+  const { data: orders, isLoading: tradesLoading } = useQuery<any[]>({
+    queryKey: ["/api/asterdex/orders", agentId],
+    queryFn: async () => {
+      const response = await fetch(`/api/asterdex/orders/${agentId}`);
+      if (!response.ok) throw new Error("Failed to fetch orders");
+      return response.json();
+    },
     enabled: !!agentId,
   });
 
@@ -312,87 +317,86 @@ export default function AgentDetail() {
       <Card className="p-6 bg-card border-card-border">
         <h2 className="text-2xl font-bold text-primary mb-4 font-cyber flex items-center gap-2">
           <FileText className="w-6 h-6" />
-          Trade History ({trades?.length || 0})
+          Trade History ({orders?.length || 0})
         </h2>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="font-mono">Asset</TableHead>
+                <TableHead className="font-mono">Symbol</TableHead>
                 <TableHead className="font-mono">Side</TableHead>
-                <TableHead className="font-mono">Size</TableHead>
-                <TableHead className="font-mono">Entry</TableHead>
-                <TableHead className="font-mono">Exit</TableHead>
-                <TableHead className="font-mono">Leverage</TableHead>
-                <TableHead className="font-mono">PnL</TableHead>
-                <TableHead className="font-mono">Duration</TableHead>
-                <TableHead className="font-mono">Closed At</TableHead>
+                <TableHead className="font-mono">Type</TableHead>
+                <TableHead className="font-mono">Quantity</TableHead>
+                <TableHead className="font-mono">Avg Price</TableHead>
+                <TableHead className="font-mono">Filled Qty</TableHead>
+                <TableHead className="font-mono">Status</TableHead>
+                <TableHead className="font-mono">Strategy</TableHead>
+                <TableHead className="font-mono">Created At</TableHead>
                 <TableHead className="font-mono">Tx Hash</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades && trades.length > 0 ? (
-                trades.slice(0, 50).map((trade) => {
-                  const tradePnL = Number(trade.realizedPnL);
-                  const tradeIsPositive = tradePnL >= 0;
-                  const durationMinutes = Math.floor(trade.duration / 60);
-                  const durationHours = Math.floor(durationMinutes / 60);
-                  const durationDisplay = durationHours > 0
-                    ? `${durationHours}h ${durationMinutes % 60}m`
-                    : `${durationMinutes}m`;
-
+              {orders && orders.length > 0 ? (
+                orders.slice(0, 100).map((order: any) => {
+                  const isBuy = order.side === "BUY";
+                  const isFilled = order.status === "FILLED";
+                  
                   return (
-                    <TableRow key={trade.id}>
-                      <TableCell className="font-mono font-bold" data-testid={`text-trade-asset-${trade.id}`}>
-                        {trade.asset}
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono font-bold" data-testid={`text-order-symbol-${order.id}`}>
+                        {order.symbol}
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={trade.side === "LONG" ? "default" : "destructive"}
-                          data-testid={`badge-trade-side-${trade.id}`}
+                          variant={isBuy ? "default" : "destructive"}
+                          data-testid={`badge-order-side-${order.id}`}
                         >
-                          {trade.side}
+                          {order.side}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono" data-testid={`text-trade-size-${trade.id}`}>
-                        {Number(trade.size).toFixed(4)}
+                      <TableCell className="font-mono" data-testid={`text-order-type-${order.id}`}>
+                        {order.type}
                       </TableCell>
-                      <TableCell className="font-mono" data-testid={`text-trade-entry-${trade.id}`}>
-                        ${Number(trade.entryPrice).toLocaleString()}
+                      <TableCell className="font-mono" data-testid={`text-order-quantity-${order.id}`}>
+                        {Number(order.quantity).toFixed(6)}
                       </TableCell>
-                      <TableCell className="font-mono" data-testid={`text-trade-exit-${trade.id}`}>
-                        ${Number(trade.exitPrice).toLocaleString()}
+                      <TableCell className="font-mono" data-testid={`text-order-price-${order.id}`}>
+                        {order.avgFilledPrice ? `$${Number(order.avgFilledPrice).toLocaleString()}` : "-"}
                       </TableCell>
-                      <TableCell className="font-mono" data-testid={`text-trade-leverage-${trade.id}`}>
-                        {trade.leverage}x
-                      </TableCell>
-                      <TableCell
-                        className={`font-mono font-bold ${
-                          tradeIsPositive ? "text-success" : "text-destructive"
-                        }`}
-                        data-testid={`text-trade-pnl-${trade.id}`}
-                      >
-                        {tradeIsPositive ? "+" : ""}${tradePnL.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground" data-testid={`text-trade-duration-${trade.id}`}>
-                        {durationDisplay}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground" data-testid={`text-trade-closed-${trade.id}`}>
-                        {new Date(trade.closedAt).toLocaleString()}
+                      <TableCell className="font-mono" data-testid={`text-order-filled-${order.id}`}>
+                        {Number(order.filledQuantity || 0).toFixed(6)}
                       </TableCell>
                       <TableCell>
-                        <a
-                          href={`https://bscscan.com/tx/${trade.closeTxHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline"
-                          data-testid={`link-trade-tx-${trade.id}`}
+                        <Badge
+                          variant={isFilled ? "default" : order.status === "REJECTED" ? "destructive" : "outline"}
+                          data-testid={`badge-order-status-${order.id}`}
                         >
-                          <span className="font-mono text-xs">
-                            {trade.closeTxHash.slice(0, 6)}...{trade.closeTxHash.slice(-4)}
-                          </span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground" data-testid={`text-order-strategy-${order.id}`}>
+                        {order.strategy || "-"}
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground text-xs" data-testid={`text-order-created-${order.id}`}>
+                        {new Date(order.createdAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {order.txHash ? (
+                          <a
+                            href={`https://bscscan.com/tx/${order.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                            data-testid={`link-order-tx-${order.id}`}
+                          >
+                            <span className="font-mono text-xs">
+                              {order.txHash.slice(0, 6)}...{order.txHash.slice(-4)}
+                            </span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="font-mono text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

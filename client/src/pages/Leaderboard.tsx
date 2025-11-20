@@ -115,10 +115,18 @@ export default function Leaderboard() {
     );
   }
 
-  // Prepare chart data
+  // Prepare chart data - filter to today's data only
   const agentMap = new Map(agents.map((a) => [a.id, a]));
   
-  const groupedData = performanceData.reduce((acc, snapshot) => {
+  // Filter snapshots to today only (start of day to now)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todaySnapshots = performanceData.filter((snapshot) => {
+    const snapshotDate = new Date(snapshot.timestamp);
+    return snapshotDate >= todayStart;
+  });
+  
+  const groupedData = todaySnapshots.reduce((acc, snapshot) => {
     if (!acc[snapshot.agentId]) {
       acc[snapshot.agentId] = [];
     }
@@ -127,7 +135,7 @@ export default function Leaderboard() {
   }, {} as Record<string, PerformanceSnapshot[]>);
 
   const allTimestamps = Array.from(
-    new Set(performanceData.map((s) => new Date(s.timestamp).getTime()))
+    new Set(todaySnapshots.map((s) => new Date(s.timestamp).getTime()))
   ).sort((a, b) => a - b);
 
   const datasets = agents.map((agent) => {
