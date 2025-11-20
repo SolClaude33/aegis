@@ -15,7 +15,7 @@ import {
   insertPerformanceSnapshotSchema,
   insertActivityEventSchema,
 } from "./schema.js";
-import { eq, desc, sql, and, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, gte } from "drizzle-orm";
 
 // Middleware to authenticate trading control endpoints
 function requireTradingAuth(req: any, res: any, next: any) {
@@ -331,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
       
       const snapshots = await db.select()
         .from(performanceSnapshots)
-        .where(sql`${performanceSnapshots.timestamp} >= ${todayStart}`)
+        .where(gte(performanceSnapshots.timestamp, todayStart))
         .orderBy(desc(performanceSnapshots.timestamp));
       res.json(snapshots);
     } catch (error) {
