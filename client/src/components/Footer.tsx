@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
   const TWITTER_URL = "https://x.com/aegisarena";
-  const GITHUB_URL = "https://github.com/AegisArena";
+  const GITHUB_URL = "https://github.com/AegisArena/aegis-main";
   const CONTRACT_ADDRESS = "SOON"; // Replace with actual contract address when token launches
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
