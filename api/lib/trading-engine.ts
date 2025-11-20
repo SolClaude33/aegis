@@ -1251,21 +1251,49 @@ export class TradingEngine {
           if (usdtAsset && usdtAsset.availableBalance) {
             const available = parseFloat(usdtAsset.availableBalance || "0");
             
-            // Get open positions
+            // Get open positions and calculate unrealized PnL
             let hasOpenPositions = false;
             let unrealizedPnL = 0;
             try {
               const positions = await agentClient.getPositions();
+              // Get market data for price calculations
+              const marketData = await this.fetchMarketData();
+              
               for (const pos of positions) {
                 const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
                 if (Math.abs(positionAmt) > 0.000001) {
                   hasOpenPositions = true;
-                  unrealizedPnL += parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                  
+                  // Try to get unrealized PnL from AsterDex first
+                  let posUnrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                  
+                  // If AsterDex didn't provide PnL, calculate it manually
+                  if (Math.abs(posUnrealizedPnL) < 0.01) {
+                    const symbol = (pos.symbol?.replace("USDT", "") || "") as SupportedCrypto;
+                    const marketInfo = marketData.find((m) => m.symbol === symbol);
+                    const currentPrice = marketInfo?.currentPrice || parseFloat(pos.markPrice || pos.marketPrice || "0");
+                    const entryPrice = parseFloat(pos.entryPrice || pos.avgPrice || currentPrice.toString());
+                    const leverage = parseFloat(pos.leverage || "3");
+                    
+                    if (currentPrice > 0 && entryPrice > 0) {
+                      const positionSize = Math.abs(positionAmt);
+                      if (positionAmt > 0) {
+                        // LONG position
+                        posUnrealizedPnL = (currentPrice - entryPrice) * positionSize * leverage;
+                      } else {
+                        // SHORT position
+                        posUnrealizedPnL = (entryPrice - currentPrice) * positionSize * leverage;
+                      }
+                    }
+                  }
+                  
+                  unrealizedPnL += posUnrealizedPnL;
                 }
               }
             } catch {}
             
-            if (hasOpenPositions && Math.abs(unrealizedPnL) > 0.0001) {
+            // Always add unrealized PnL if there are open positions
+            if (hasOpenPositions) {
               currentBalance = available + unrealizedPnL;
               balanceSource = "asterdex_with_positions";
             } else if (available > 0) {

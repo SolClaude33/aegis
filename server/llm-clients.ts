@@ -398,7 +398,8 @@ export class GeminiClient implements LLMClient {
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 500,
-          responseMimeType: "application/json",
+          // Remove responseMimeType to allow text responses
+          // Some models may not support JSON mode properly
         },
       });
 
@@ -409,26 +410,34 @@ export class GeminiClient implements LLMClient {
       let content = "";
       try {
         content = response.text();
-      } catch (e) {
-        // If text() fails, try accessing candidates
+      } catch (e: any) {
+        console.log(`[Gemini] text() failed, trying alternative method:`, e?.message);
+        // If text() fails, try accessing candidates directly
         const candidates = response.candidates;
         if (candidates && candidates.length > 0) {
           const candidate = candidates[0];
           if (candidate.content && candidate.content.parts) {
             content = candidate.content.parts
-              .map((part: any) => part.text || "")
+              .map((part: any) => {
+                // Handle both text and functionCall parts
+                if (typeof part === 'string') return part;
+                return part.text || JSON.stringify(part) || "";
+              })
               .join("");
+          } else if (candidate.content) {
+            // Try direct access
+            content = JSON.stringify(candidate.content);
           }
         }
       }
 
       if (!content || content.trim().length === 0) {
         console.error(`[Gemini] No response content from model ${this.model}`);
-        console.error(`[Gemini] Response object:`, {
-          candidates: response.candidates?.length || 0,
+        console.error(`[Gemini] Full response object:`, JSON.stringify({
+          candidates: response.candidates,
           promptFeedback: response.promptFeedback,
           usageMetadata: response.usageMetadata,
-        });
+        }, null, 2));
         return this.getDefaultDecision("No response from Gemini");
       }
 
