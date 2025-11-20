@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots } from "@shared/schema";
+import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots, positions } from "@shared/schema";
 import { AsterDexClient } from "./asterdex-client";
 import { type MarketData } from "./trading-strategies";
 import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients";
@@ -264,7 +264,16 @@ export class TradingEngine {
         }
       }
 
-      // Update agent balances from actual trades
+      // Sync all positions from AsterDex to database
+      for (const agent of allAgents) {
+        try {
+          await this.syncPositionsFromAsterDex(agent.id, marketData);
+        } catch (error) {
+          console.error(`Error syncing positions for ${agent.name}:`, error);
+        }
+      }
+
+      // Update agent balances from actual trades (includes unrealized PnL)
       await this.updateAgentBalances();
 
       console.log("✅ Trading Cycle Complete");
@@ -403,6 +412,110 @@ export class TradingEngine {
     
     // Ensure we don't have floating point precision issues
     return parseFloat(truncated.toFixed(decimals));
+  }
+
+  /**
+   * Sync positions from AsterDex to database
+   * This ensures the positions table is always up-to-date with actual AsterDex positions
+   */
+  private async syncPositionsFromAsterDex(agentId: string, marketData: (MarketData & { symbol: SupportedCrypto })[]) {
+    try {
+      const agent = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
+      if (agent.length === 0) return;
+
+      const agentClient = this.getAgentClient(agent[0]);
+      if (!agentClient) return;
+
+      // Get positions from AsterDex
+      const asterdexPositions = await agentClient.getPositions();
+      
+      // Get existing positions from database for this agent
+      const existingPositions = await db
+        .select()
+        .from(positions)
+        .where(eq(positions.agentId, agentId));
+
+      // Create a map of existing positions by asset
+      const existingPositionsMap = new Map<string, typeof existingPositions[0]>();
+      for (const pos of existingPositions) {
+        existingPositionsMap.set(pos.asset, pos);
+      }
+
+      // Process each position from AsterDex
+      for (const pos of asterdexPositions) {
+        const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+        
+        // Only process positions with significant size
+        if (Math.abs(positionAmt) < 0.000001) {
+          // Position is closed, remove from database if exists
+          const existingPos = existingPositionsMap.get(pos.symbol?.replace("USDT", "") || "");
+          if (existingPos) {
+            await db.delete(positions).where(eq(positions.id, existingPos.id));
+          }
+          continue;
+        }
+
+        // Normalize symbol: BTCUSDT → BTC
+        const normalizedSymbol = (pos.symbol?.replace("USDT", "") || "") as SupportedCrypto;
+        if (!SUPPORTED_CRYPTOS.includes(normalizedSymbol)) continue;
+
+        // Get current market price
+        const marketInfo = marketData.find((m) => m.symbol === normalizedSymbol);
+        const currentPrice = marketInfo?.currentPrice || parseFloat(pos.markPrice || pos.marketPrice || "0");
+        const entryPrice = parseFloat(pos.entryPrice || pos.avgPrice || currentPrice.toString());
+        const unrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+        const leverage = parseFloat(pos.leverage || "3");
+        
+        // Calculate unrealized PnL percentage
+        const positionValue = Math.abs(positionAmt) * entryPrice;
+        const unrealizedPnLPercentage = positionValue > 0 ? (unrealizedPnL / positionValue) * 100 : 0;
+
+        const existingPos = existingPositionsMap.get(normalizedSymbol);
+        
+        if (existingPos) {
+          // Update existing position
+          await db
+            .update(positions)
+            .set({
+              size: Math.abs(positionAmt).toFixed(8),
+              currentPrice: currentPrice.toFixed(2),
+              unrealizedPnL: unrealizedPnL.toFixed(2),
+              unrealizedPnLPercentage: unrealizedPnLPercentage.toFixed(2),
+            })
+            .where(eq(positions.id, existingPos.id));
+        } else {
+          // Create new position - find the most recent BUY order for this asset
+          const recentOrder = await db
+            .select()
+            .from(asterdexOrders)
+            .where(eq(asterdexOrders.agentId, agentId))
+            .where(eq(asterdexOrders.symbol, pos.symbol || `${normalizedSymbol}USDT`))
+            .where(eq(asterdexOrders.side, "BUY"))
+            .orderBy(desc(asterdexOrders.createdAt))
+            .limit(1);
+
+          const txHash = recentOrder[0]?.txHash || "";
+
+          await db.insert(positions).values({
+            agentId: agentId,
+            asset: normalizedSymbol,
+            side: positionAmt > 0 ? "LONG" : "SHORT",
+            size: Math.abs(positionAmt).toFixed(8),
+            entryPrice: entryPrice.toFixed(2),
+            currentPrice: currentPrice.toFixed(2),
+            leverage: Math.round(leverage),
+            unrealizedPnL: unrealizedPnL.toFixed(2),
+            unrealizedPnLPercentage: unrealizedPnLPercentage.toFixed(2),
+            strategy: recentOrder[0]?.strategy || null,
+            llmReasoning: recentOrder[0]?.llmReasoning || null,
+            llmConfidence: recentOrder[0]?.llmConfidence || null,
+            openTxHash: txHash,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error syncing positions for agent ${agentId}:`, error);
+    }
   }
 
   private async executeAgentTrades(
@@ -716,6 +829,9 @@ export class TradingEngine {
       });
 
       console.log(`✅ Order executed for ${agent.name}: ${orderResponse.orderId}`);
+      
+      // Sync positions from AsterDex to database after successful trade
+      await this.syncPositionsFromAsterDex(agent.id, marketData);
     } catch (error: any) {
       console.error(`❌ Order failed for ${agent.name}:`, error.message);
 
