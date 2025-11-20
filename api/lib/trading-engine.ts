@@ -483,23 +483,25 @@ export class TradingEngine {
         existingPositionsMap.set(pos.asset, pos);
       }
 
+      // Create a set of active positions from AsterDex (with significant size)
+      const activeAsterdexPositions = new Set<string>();
+      
       // Process each position from AsterDex
       for (const pos of asterdexPositions) {
         const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
         
-        // Only process positions with significant size
-        if (Math.abs(positionAmt) < 0.000001) {
-          // Position is closed, remove from database if exists
-          const existingPos = existingPositionsMap.get(pos.symbol?.replace("USDT", "") || "");
-          if (existingPos) {
-            await db.delete(positions).where(eq(positions.id, existingPos.id));
-          }
-          continue;
-        }
-
         // Normalize symbol: BTCUSDT → BTC
         const normalizedSymbol = (pos.symbol?.replace("USDT", "") || "") as SupportedCrypto;
         if (!SUPPORTED_CRYPTOS.includes(normalizedSymbol)) continue;
+        
+        // Only process positions with significant size
+        if (Math.abs(positionAmt) < 0.000001) {
+          // Position is closed or too small, skip it
+          continue;
+        }
+
+        // Mark this position as active
+        activeAsterdexPositions.add(normalizedSymbol);
 
         // Get current market price
         const marketInfo = marketData.find((m) => m.symbol === normalizedSymbol);
@@ -553,6 +555,15 @@ export class TradingEngine {
             llmConfidence: recentOrder[0]?.llmConfidence || null,
             openTxHash: txHash,
           });
+        }
+      }
+
+      // Remove positions from database that are no longer in AsterDex
+      for (const [asset, existingPos] of existingPositionsMap.entries()) {
+        if (!activeAsterdexPositions.has(asset)) {
+          // Position exists in DB but not in AsterDex - it was closed
+          await db.delete(positions).where(eq(positions.id, existingPos.id));
+          console.log(`🗑️  Removed closed position: ${agent[0].name} - ${asset}`);
         }
       }
     } catch (error) {
