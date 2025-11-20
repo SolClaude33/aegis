@@ -469,9 +469,19 @@ export class TradingEngine {
       console.log(`   Confidence: ${(decision.confidence * 100).toFixed(0)}%`);
       console.log(`   Reasoning: ${decision.reasoning}`);
 
-      // If decision is HOLD, skip
+      // If decision is HOLD, log the reasoning and skip execution
       if (decision.action === "HOLD") {
         console.log(`✋ ${agent.name} decided to HOLD`);
+        
+        // Log HOLD decision with reasoning to activity feed
+        await db.insert(activityEvents).values({
+          agentId: agent.id,
+          eventType: "DECISION_MADE",
+          message: `HOLD decision - ${decision.reasoning}`,
+          asset: null,
+          strategy: decision.strategy || null,
+        });
+        
         return;
       }
 
