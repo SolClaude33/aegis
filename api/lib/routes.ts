@@ -331,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
       
       const snapshots = await db.select()
         .from(performanceSnapshots)
-        .where(sql`timestamp >= ${todayStart}`)
+        .where(sql`${performanceSnapshots.timestamp} >= ${todayStart}`)
         .orderBy(desc(performanceSnapshots.timestamp));
       res.json(snapshots);
     } catch (error) {
