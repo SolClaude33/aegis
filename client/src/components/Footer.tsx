@@ -1,22 +1,7 @@
-import { Twitter, FileText, Copy, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Twitter, ExternalLink } from "lucide-react";
 
 export default function Footer() {
-  const { toast } = useToast();
-
-  // TODO: Update these URLs/addresses with actual values
-  const TWITTER_URL = "https://twitter.com/your_twitter_handle";
-  const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // Update with actual CA
-  const DOCS_URL = "https://docs.aegisarena.com"; // Update with actual docs URL
-
-  const copyContractAddress = () => {
-    navigator.clipboard.writeText(CONTRACT_ADDRESS);
-    toast({
-      title: "Copied!",
-      description: "Contract address copied to clipboard",
-    });
-  };
+  const TWITTER_URL = "https://x.com/aegisarena";
 
   return (
     <footer className="border-t border-border bg-card/50 backdrop-blur mt-auto">
@@ -47,30 +32,14 @@ export default function Footer() {
               <ExternalLink className="w-3 h-3" />
             </a>
 
-            <button
-              onClick={copyContractAddress}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-mono"
-              title="Click to copy contract address"
-            >
-              <Copy className="w-4 h-4" />
-              <span>CA: {CONTRACT_ADDRESS.slice(0, 6)}...{CONTRACT_ADDRESS.slice(-4)}</span>
-            </button>
-
-            <a
-              href={DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-mono"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Docs</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
+              <span>CA: SOON</span>
+            </div>
           </div>
 
           {/* Right side - Copyright */}
           <div className="text-xs text-muted-foreground font-mono">
-            © 2025 Aegis Arena
+            © {new Date().getFullYear()} Aegis Arena. All rights reserved.
           </div>
         </div>
       </div>
