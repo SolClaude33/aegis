@@ -57,6 +57,7 @@ export interface LLMAnalysisContext {
     entryPrice: number;
     currentPrice: number;
     unrealizedPnL: number;
+    side?: "LONG" | "SHORT"; // Position direction
   }[];
   marketData: (MarketData & { symbol: SupportedCrypto })[];
   previousDecisions?: string[]; // Last 3 decisions for context
@@ -119,7 +120,7 @@ export class OpenAIClient implements LLMClient {
 
     const positionsDesc = context.openPositions.length > 0
       ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
+          `${p.asset}: ${p.size.toFixed(4)} units ${p.side || 'LONG'} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
         ).join("\n")
       : "No open positions";
 
@@ -303,7 +304,7 @@ export class AnthropicClient implements LLMClient {
 
     const positionsDesc = context.openPositions.length > 0
       ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
+          `${p.asset}: ${p.size.toFixed(4)} units ${p.side || 'LONG'} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
         ).join("\n")
       : "No open positions";
 
@@ -525,7 +526,7 @@ export class GeminiClient implements LLMClient {
 
     const positionsDesc = context.openPositions.length > 0
       ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
+          `${p.asset}: ${p.size.toFixed(4)} units ${p.side || 'LONG'} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
         ).join("\n")
       : "No open positions";
 
@@ -712,7 +713,7 @@ export class OpenAICompatibleClient implements LLMClient {
 
     const positionsDesc = context.openPositions.length > 0
       ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
+          `${p.asset}: ${p.size.toFixed(4)} units ${p.side || 'LONG'} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
         ).join("\n")
       : "No open positions";
 
