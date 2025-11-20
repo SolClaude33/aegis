@@ -201,9 +201,10 @@ export class AnthropicClient implements LLMClient {
   private client: Anthropic;
   private model: string;
 
-  constructor(apiKey: string, model: string = "claude-sonnet-4-5") {
+  constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
-    this.model = model;
+    // Use environment variable or default to latest Claude 3.5 Sonnet
+    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
   }
 
   async analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision> {
@@ -227,13 +228,45 @@ export class AnthropicClient implements LLMClient {
 
       return this.parseResponse(content.text);
     } catch (error: any) {
+      // Log detailed error information for debugging
+      const errorStatus = error?.status || error?.statusCode;
+      const errorType = error?.error?.type || error?.type;
+      const errorMessage = error?.message || error?.error?.message || "Unknown error";
+      
+      console.error(`[Anthropic] Error details for ${context.agentName}:`, {
+        status: errorStatus,
+        type: errorType,
+        message: errorMessage,
+        model: this.model,
+        error: error?.error || error,
+      });
+
       // Handle specific Anthropic API errors
-      if (error?.status === 529 || error?.error?.type === "overloaded_error") {
+      if (errorStatus === 529 || errorType === "overloaded_error") {
         console.warn(`[Anthropic] Service overloaded (529), using default HOLD decision for ${context.agentName}`);
         return this.getDefaultDecision("Claude API temporarily overloaded - holding position");
       }
-      console.error(`[Anthropic] Error analyzing market:`, error);
-      return this.getDefaultDecision("Error calling Claude API");
+      
+      // Check for authentication errors
+      if (errorStatus === 401 || errorStatus === 403) {
+        console.error(`[Anthropic] Authentication error (${errorStatus}) - Check API key for ${context.agentName}`);
+        return this.getDefaultDecision(`Claude API authentication error (${errorStatus}) - check API key`);
+      }
+      
+      // Check for rate limit errors
+      if (errorStatus === 429) {
+        console.warn(`[Anthropic] Rate limit exceeded for ${context.agentName}`);
+        return this.getDefaultDecision("Claude API rate limit exceeded - holding position");
+      }
+      
+      // Check for model errors
+      if (errorStatus === 400 && errorMessage?.includes("model")) {
+        console.error(`[Anthropic] Model error - Check if model "${this.model}" is valid`);
+        return this.getDefaultDecision(`Invalid model "${this.model}" - check model name`);
+      }
+      
+      console.error(`[Anthropic] Unexpected error (${errorStatus || "unknown"}) for ${context.agentName}`);
+      return this.getDefaultDecision(`Error calling Claude API: ${errorMessage}`);
     }
   }
 
