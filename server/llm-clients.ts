@@ -123,7 +123,7 @@ export class OpenAIClient implements LLMClient {
         ).join("\n")
       : "No open positions";
 
-    return `You are ${context.agentName}, an AI trading agent competing against other AIs.
+    return `You are ${context.agentName}, an AI trading agent competing against other AIs in a competitive trading arena.
 
 CURRENT STATE:
 - Capital: $${context.currentCapital.toFixed(2)}
@@ -133,8 +133,14 @@ ${positionsDesc}
 MARKET DATA (3 cryptocurrencies):
 ${marketsDesc}
 
-AVAILABLE STRATEGIES:
+AVAILABLE STRATEGIES (use as GUIDELINES, not strict rules):
 ${strategiesDesc}
+
+IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. For example:
+- Momentum strategy can work with smaller gains if trend is strong
+- Swing trading can work with smaller drops if asset shows support
+- Conservative strategy can adapt to current market conditions
+- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
 
 RISK LIMITS (ENFORCED):
 - Max position size: 25% of capital per trade (margin)
@@ -144,13 +150,15 @@ RISK LIMITS (ENFORCED):
 - Minimum trade: $7 margin
 
 TASK:
-Analyze the market and decide:
-1. Which action: BUY, SELL, or HOLD
+Be PROACTIVE and find trading opportunities. Analyze the market and decide:
+1. Which action: BUY, SELL, or HOLD (prefer BUY/SELL over HOLD when opportunities exist)
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD)
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
 4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
 5. Your reasoning (concise)
 6. Confidence level: 0.0-1.0
+
+Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect.
 
 Respond ONLY with valid JSON:
 {
@@ -295,8 +303,14 @@ ${positionsDesc}
 MARKET DATA:
 ${marketsDesc}
 
-AVAILABLE STRATEGIES:
+AVAILABLE STRATEGIES (use as GUIDELINES, not strict rules):
 ${strategiesDesc}
+
+IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. For example:
+- Momentum strategy can work with smaller gains if trend is strong
+- Swing trading can work with smaller drops if asset shows support
+- Conservative strategy can adapt to current market conditions
+- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
 
 CONSTRAINTS:
 - Max 25% position size per trade (margin)
@@ -305,7 +319,9 @@ CONSTRAINTS:
 - Max 3 trades per cycle
 - Minimum trade: $7 margin
 
-Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
+TASK:
+Be PROACTIVE and find trading opportunities. Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
+Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect.
 
 Respond with ONLY valid JSON:
 {
@@ -415,8 +431,10 @@ ${positionsDesc}
 MARKETS:
 ${marketsDesc}
 
-STRATEGIES:
+STRATEGIES (use as GUIDELINES, not strict rules):
 ${strategiesDesc}
+
+IMPORTANT: Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. Be PROACTIVE - find trading opportunities, don't wait for perfect conditions. You're competing against other AIs - being too conservative means losing.
 
 RULES:
 - Max 25% per position (margin)
@@ -424,6 +442,8 @@ RULES:
 - Max 5% loss per trade
 - Minimum trade: $7 margin
 - Choose best strategy for current conditions
+
+Be PROACTIVE and find trading opportunities. Prefer BUY/SELL over HOLD when opportunities exist.
 
 Return JSON only:
 {
@@ -548,10 +568,14 @@ Positions: ${positionsDesc}
 Markets:
 ${marketsDesc}
 
-Strategies:
+Strategies (use as GUIDELINES, not strict rules):
 ${strategiesDesc}
 
+IMPORTANT: Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. Be PROACTIVE - find trading opportunities, don't wait for perfect conditions. You're competing against other AIs - being too conservative means losing.
+
 Rules: Max 25% position size (margin), 3x leverage on AsterDex, min $7 margin.
+
+Be PROACTIVE and find trading opportunities. Prefer BUY/SELL over HOLD when opportunities exist.
 
 Decide: action, asset, strategy, position size (0-25% margin, AsterDex applies 3x leverage), reasoning, confidence.
 
