@@ -785,13 +785,14 @@ IMPORTANT:
 Rules: Max 25% position size (margin) per asset, 3x leverage on AsterDex, min $7 margin.
 MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. Diversify across all 3 pairs if you see opportunities.
 
-Be PROACTIVE and find trading opportunities. Prefer BUY/SELL over HOLD when opportunities exist. You can trade different assets even if you already have positions in others!
+Be PROACTIVE and find trading opportunities. Prefer OPEN/CLOSE over HOLD when opportunities exist. You can trade different assets even if you already have positions in others!
 
-Decide: action, asset, strategy, position size (0-25% margin, AsterDex applies 3x leverage), reasoning, confidence.
+Decide: action, asset, direction (for OPEN), strategy, position size (0-25% margin, AsterDex applies 3x leverage), reasoning, confidence.
 
 JSON only:
 {
-  "action": "BUY"|"SELL"|"HOLD",
+  "action": "OPEN" | "CLOSE" | "HOLD",
+  "direction": "LONG" | "SHORT" | null (required if action is OPEN),
   "asset": "BTC"|"ETH"|"BNB"|null,
   "strategy": "momentum"|"swing"|"conservative"|"aggressive"|"trend_follower"|"mean_reversion"|null,
   "positionSizePercent": 0-25,
