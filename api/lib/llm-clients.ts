@@ -397,7 +397,7 @@ export class GeminiClient implements LLMClient {
         model: this.model,
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 500,
+          maxOutputTokens: 2000, // Increased from 500 to handle longer responses
           // Remove responseMimeType to allow text responses
           // Some models may not support JSON mode properly
         },
@@ -405,6 +405,12 @@ export class GeminiClient implements LLMClient {
 
       const result = await model.generateContent(prompt);
       const response = result.response;
+      
+      // Check finish reason first
+      const finishReason = response.candidates?.[0]?.finishReason;
+      if (finishReason === "MAX_TOKENS") {
+        console.warn(`[Gemini] Response hit MAX_TOKENS limit, attempting to extract partial content`);
+      }
       
       // Try multiple ways to get the content
       let content = "";
@@ -416,13 +422,17 @@ export class GeminiClient implements LLMClient {
         const candidates = response.candidates;
         if (candidates && candidates.length > 0) {
           const candidate = candidates[0];
-          if (candidate.content && candidate.content.parts) {
+          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
             content = candidate.content.parts
               .map((part: any) => {
                 // Handle both text and functionCall parts
                 if (typeof part === 'string') return part;
-                return part.text || JSON.stringify(part) || "";
+                if (part.text) return part.text;
+                // Try to extract text from nested structures
+                if (part.functionCall) return JSON.stringify(part.functionCall);
+                return JSON.stringify(part) || "";
               })
+              .filter((text: string) => text && text.trim().length > 0)
               .join("");
           } else if (candidate.content) {
             // Try direct access
@@ -433,6 +443,7 @@ export class GeminiClient implements LLMClient {
 
       if (!content || content.trim().length === 0) {
         console.error(`[Gemini] No response content from model ${this.model}`);
+        console.error(`[Gemini] Finish reason: ${finishReason}`);
         console.error(`[Gemini] Full response object:`, JSON.stringify({
           candidates: response.candidates,
           promptFeedback: response.promptFeedback,

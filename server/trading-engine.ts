@@ -872,6 +872,9 @@ export class TradingEngine {
         quantity: formattedQuantity,
       });
 
+      // Sync positions immediately after trade to get accurate unrealized PnL
+      await this.syncPositionsFromAsterDex(agent.id, marketData);
+
       // Update order with response
       await db
         .update(asterdexOrders)
@@ -899,6 +902,13 @@ export class TradingEngine {
       
       // Sync positions from AsterDex to database after successful trade
       await this.syncPositionsFromAsterDex(agent.id, marketData);
+      
+      // If order was filled, update balance and create snapshot immediately
+      // This ensures the chart reflects the unrealized PnL from the new position
+      if (orderResponse.status === "FILLED" || orderResponse.status === "PARTIALLY_FILLED") {
+        // Update balance for this agent and create snapshot with unrealized PnL
+        await this.createSnapshotForAgent(agent.id);
+      }
     } catch (error: any) {
       console.error(`❌ Order failed for ${agent.name}:`, error.message);
 

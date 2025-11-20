@@ -874,6 +874,9 @@ export class TradingEngine {
         quantity: formattedQuantity,
       });
 
+      // Sync positions immediately after trade to get accurate unrealized PnL
+      await this.syncPositionsFromAsterDex(agent.id, marketData);
+
       // Update order with response
       await db
         .update(asterdexOrders)
