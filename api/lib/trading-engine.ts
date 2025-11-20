@@ -388,19 +388,23 @@ export class TradingEngine {
 
   private normalizePrecision(symbol: string, quantity: number): number {
     // Define precision rules based on asset type - being conservative for AsterDex
+    // AsterDex typically requires: BTC=3, ETH=3, BNB=2 decimal places
     let decimals = 2; // Very conservative default
 
-    if (symbol.startsWith("BTC")) {
-      decimals = 4; // BTC - conservative precision
-    } else if (symbol.startsWith("ETH")) {
-      decimals = 3; // ETH - conservative precision
-    } else if (symbol.startsWith("BNB")) {
-      decimals = 2; // BNB - very conservative precision
+    if (symbol.startsWith("BTC") || symbol === "BTCUSDT") {
+      decimals = 3; // BTC - AsterDex typically allows 3 decimals max
+    } else if (symbol.startsWith("ETH") || symbol === "ETHUSDT") {
+      decimals = 3; // ETH - AsterDex typically allows 3 decimals max
+    } else if (symbol.startsWith("BNB") || symbol === "BNBUSDT") {
+      decimals = 2; // BNB - AsterDex typically allows 2 decimals max
     }
 
-    // Round to specified decimals
+    // Round down to specified decimals (truncate, don't round up)
     const multiplier = Math.pow(10, decimals);
-    return Math.floor(quantity * multiplier) / multiplier;
+    const truncated = Math.floor(quantity * multiplier) / multiplier;
+    
+    // Ensure we don't have floating point precision issues
+    return parseFloat(truncated.toFixed(decimals));
   }
 
   private async executeAgentTrades(
@@ -581,7 +585,7 @@ export class TradingEngine {
         // Get precision step (e.g., 0.01 for 2 decimals)
         let decimals = 2;
         if (asterdexSymbol.startsWith("BTC")) {
-          decimals = 4;
+          decimals = 3; // Match AsterDex precision requirements
         } else if (asterdexSymbol.startsWith("ETH")) {
           decimals = 3;
         } else if (asterdexSymbol.startsWith("BNB")) {
@@ -643,12 +647,26 @@ export class TradingEngine {
         return;
       }
 
+      // Format quantity to ensure proper precision before sending to AsterDex
+      // Get decimals based on symbol
+      let decimals = 2;
+      if (asterdexSymbol.startsWith("BTC")) {
+        decimals = 3;
+      } else if (asterdexSymbol.startsWith("ETH")) {
+        decimals = 3;
+      } else if (asterdexSymbol.startsWith("BNB")) {
+        decimals = 2;
+      }
+      
+      // Ensure quantity is properly formatted (no extra decimals)
+      const formattedQuantity = parseFloat(normalizedQuantity.toFixed(decimals));
+      
       // Execute order on AsterDex with agent's credentials
       const orderResponse = await agentClient.createOrder({
         symbol: asterdexSymbol,
         side: decision.action,
         type: "MARKET",
-        quantity: normalizedQuantity,
+        quantity: formattedQuantity,
       });
 
       // Update order with response

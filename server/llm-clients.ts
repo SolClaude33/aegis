@@ -226,7 +226,12 @@ export class AnthropicClient implements LLMClient {
       if (content.type !== "text") throw new Error("Unexpected response type");
 
       return this.parseResponse(content.text);
-    } catch (error) {
+    } catch (error: any) {
+      // Handle specific Anthropic API errors
+      if (error?.status === 529 || error?.error?.type === "overloaded_error") {
+        console.warn(`[Anthropic] Service overloaded (529), using default HOLD decision for ${context.agentName}`);
+        return this.getDefaultDecision("Claude API temporarily overloaded - holding position");
+      }
       console.error(`[Anthropic] Error analyzing market:`, error);
       return this.getDefaultDecision("Error calling Claude API");
     }
