@@ -9,6 +9,7 @@ import ControlPanel from "@/pages/ControlPanel";
 import NotFound from "@/pages/not-found";
 import ActivityFeed from "@/components/ActivityFeed";
 import MatrixRain from "@/components/MatrixRain";
+import Footer from "@/components/Footer";
 import { useEffect } from "react";
 
 function Router() {
@@ -36,16 +37,20 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   // Regular layout with sidebar
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen relative z-10">
-      <main className="flex-1 lg:w-2/3">
-        {children}
-      </main>
+    <div className="flex flex-col min-h-screen relative z-10">
+      <div className="flex flex-col lg:flex-row flex-1">
+        <main className="flex-1 lg:w-2/3">
+          {children}
+        </main>
+        
+        <aside className="lg:w-1/3 lg:max-w-xl border-l border-border bg-background/95 backdrop-blur">
+          <div className="sticky top-0 h-screen overflow-hidden p-6">
+            <ActivityFeed />
+          </div>
+        </aside>
+      </div>
       
-      <aside className="lg:w-1/3 lg:max-w-xl border-l border-border bg-background/95 backdrop-blur">
-        <div className="sticky top-0 h-screen overflow-hidden p-6">
-          <ActivityFeed />
-        </div>
-      </aside>
+      <Footer />
     </div>
   );
 }
