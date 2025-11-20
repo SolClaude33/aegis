@@ -397,7 +397,7 @@ export class GeminiClient implements LLMClient {
         model: this.model,
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2000, // Increased from 500 to handle longer responses
+          maxOutputTokens: 8192, // Increased to 8192 (well below 65,536 limit for gemini-2.5-pro)
           // Remove responseMimeType to allow text responses
           // Some models may not support JSON mode properly
         },
@@ -408,47 +408,73 @@ export class GeminiClient implements LLMClient {
       
       // Check finish reason first
       const finishReason = response.candidates?.[0]?.finishReason;
-      if (finishReason === "MAX_TOKENS") {
-        console.warn(`[Gemini] Response hit MAX_TOKENS limit, attempting to extract partial content`);
-      }
+      const candidates = response.candidates;
       
       // Try multiple ways to get the content
       let content = "";
+      
+      // First, try the standard text() method
       try {
         content = response.text();
       } catch (e: any) {
-        console.log(`[Gemini] text() failed, trying alternative method:`, e?.message);
-        // If text() fails, try accessing candidates directly
-        const candidates = response.candidates;
+        console.log(`[Gemini] text() failed: ${e?.message}, trying alternative extraction`);
+      }
+      
+      // If text() didn't work or returned empty, try direct candidate access
+      if (!content || content.trim().length === 0) {
         if (candidates && candidates.length > 0) {
           const candidate = candidates[0];
-          if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          
+          // Check if content.parts exists and has items
+          if (candidate.content?.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
             content = candidate.content.parts
               .map((part: any) => {
-                // Handle both text and functionCall parts
+                // Handle different part types
                 if (typeof part === 'string') return part;
                 if (part.text) return part.text;
-                // Try to extract text from nested structures
-                if (part.functionCall) return JSON.stringify(part.functionCall);
-                return JSON.stringify(part) || "";
+                // Handle function calls or other structured data
+                if (part.functionCall) {
+                  return JSON.stringify(part.functionCall);
+                }
+                // Try to stringify the whole part as fallback
+                try {
+                  return JSON.stringify(part);
+                } catch {
+                  return String(part);
+                }
               })
               .filter((text: string) => text && text.trim().length > 0)
-              .join("");
+              .join(" ");
           } else if (candidate.content) {
-            // Try direct access
-            content = JSON.stringify(candidate.content);
+            // Try to extract from content object directly
+            try {
+              content = JSON.stringify(candidate.content);
+            } catch {
+              content = String(candidate.content);
+            }
           }
         }
+      }
+
+      // Log warning if we hit MAX_TOKENS but still got content
+      if (finishReason === "MAX_TOKENS" && content) {
+        console.warn(`[Gemini] Response hit MAX_TOKENS limit but extracted ${content.length} chars of content`);
       }
 
       if (!content || content.trim().length === 0) {
         console.error(`[Gemini] No response content from model ${this.model}`);
         console.error(`[Gemini] Finish reason: ${finishReason}`);
-        console.error(`[Gemini] Full response object:`, JSON.stringify({
-          candidates: response.candidates,
-          promptFeedback: response.promptFeedback,
-          usageMetadata: response.usageMetadata,
-        }, null, 2));
+        console.error(`[Gemini] Candidates count: ${candidates?.length || 0}`);
+        if (candidates && candidates.length > 0) {
+          console.error(`[Gemini] First candidate structure:`, JSON.stringify({
+            finishReason: candidates[0].finishReason,
+            hasContent: !!candidates[0].content,
+            hasParts: !!candidates[0].content?.parts,
+            partsLength: candidates[0].content?.parts?.length || 0,
+            index: candidates[0].index,
+          }, null, 2));
+        }
+        console.error(`[Gemini] Usage metadata:`, response.usageMetadata);
         return this.getDefaultDecision("No response from Gemini");
       }
 
