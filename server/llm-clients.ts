@@ -605,7 +605,7 @@ Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT w
    - CLOSE: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
    - HOLD: Wait for better opportunities or let existing positions develop
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
-3. Direction (only for OPEN_POSITION): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
+3. Direction (only for OPEN): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
 4. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
 5. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
 6. Your reasoning (concise explanation - especially important when closing positions to justify why)
