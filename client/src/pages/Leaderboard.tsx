@@ -128,15 +128,8 @@ export default function Leaderboard() {
   // Map for agent names (used in positions table)
   const agentNameMap = new Map(agents.map(agent => [agent.id, agent.name]));
   
-  // Filter snapshots to today only (start of day to now)
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todaySnapshots = performanceData.filter((snapshot) => {
-    const snapshotDate = new Date(snapshot.timestamp);
-    return snapshotDate >= todayStart;
-  });
-  
-  const groupedData = todaySnapshots.reduce((acc, snapshot) => {
+  // Group all snapshots by agent (no date filter - show all historical data)
+  const groupedData = performanceData.reduce((acc, snapshot) => {
     if (!acc[snapshot.agentId]) {
       acc[snapshot.agentId] = [];
     }
@@ -435,7 +428,7 @@ export default function Leaderboard() {
           Open Positions ({allPositions?.length || 0})
         </h2>
         <p className="text-sm text-muted-foreground font-mono mb-4">
-          Current active positions across all AI agents (3x leverage)
+          Current active positions across all AI agents
         </p>
         {allPositions && allPositions.length > 0 ? (
           <div className="overflow-x-auto">

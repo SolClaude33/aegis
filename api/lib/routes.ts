@@ -322,16 +322,11 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
   });
 
   // Get all performance snapshots (for leaderboard chart)
-  // Filter to today's data only to show full day timeline
+  // Show all historical data (no date filter)
   app.get('/api/performance', async (req, res) => {
     try {
-      // Get start of today in UTC
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
-      
       const snapshots = await db.select()
         .from(performanceSnapshots)
-        .where(gte(performanceSnapshots.timestamp, todayStart))
         .orderBy(desc(performanceSnapshots.timestamp));
       res.json(snapshots);
     } catch (error) {
