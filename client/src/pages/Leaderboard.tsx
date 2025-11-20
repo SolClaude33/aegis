@@ -444,7 +444,6 @@ export default function Leaderboard() {
                   <TableHead className="font-mono">Leverage</TableHead>
                   <TableHead className="font-mono">Unrealized PnL</TableHead>
                   <TableHead className="font-mono">Strategy</TableHead>
-                  <TableHead className="font-mono">Tx Hash</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -488,19 +487,6 @@ export default function Leaderboard() {
                             {position.strategy}
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <a
-                          href={`https://bscscan.com/tx/${position.openTxHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline font-mono text-xs"
-                        >
-                          <span>
-                            {position.openTxHash.slice(0, 6)}...{position.openTxHash.slice(-4)}
-                          </span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
                       </TableCell>
                     </TableRow>
                   );

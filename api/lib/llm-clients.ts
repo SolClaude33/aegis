@@ -133,32 +133,34 @@ ${positionsDesc}
 MARKET DATA (3 cryptocurrencies):
 ${marketsDesc}
 
-AVAILABLE STRATEGIES (use as GUIDELINES, not strict rules):
+AVAILABLE STRATEGIES (you can choose ANY strategy based on your own analysis):
 ${strategiesDesc}
 
-IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. For example:
-- Momentum strategy can work with smaller gains if trend is strong
-- Swing trading can work with smaller drops if asset shows support
-- Conservative strategy can adapt to current market conditions
+IMPORTANT: 
+- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
+- Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly and choose what YOU think is best for the current market
+- Look for opportunities even if conditions don't match perfectly
 - Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
 
 RISK LIMITS (ENFORCED):
-- Max position size: 25% of capital per trade (margin)
+- Max position size: 25% of capital per trade (margin) - per asset
 - Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
 - Max loss per trade: 5%
 - Max 3 trades per 2-minute cycle
 - Minimum trade: $7 margin
+- MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TASK:
 Be PROACTIVE and find trading opportunities. Analyze the market and decide:
 1. Which action: BUY, SELL, or HOLD (prefer BUY/SELL over HOLD when opportunities exist)
-2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD)
+2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
 4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
 5. Your reasoning (concise)
 6. Confidence level: 0.0-1.0
 
-Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect.
+Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect. You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond ONLY with valid JSON:
 {
@@ -211,9 +213,9 @@ export class AnthropicClient implements LLMClient {
 
   constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
-    // Use environment variable or default to latest Claude 3.5 Sonnet
-    // Using claude-3-5-sonnet-20241022 (active model as of Nov 2024)
-    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+    // Use environment variable or default to latest Claude 3.7 Sonnet
+    // Using claude-3-7-sonnet-20250219 (latest stable model as of Jan 2025)
+    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-7-sonnet-20250219";
   }
 
   async analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision> {
@@ -304,14 +306,15 @@ ${positionsDesc}
 MARKET DATA:
 ${marketsDesc}
 
-AVAILABLE STRATEGIES (use as GUIDELINES, not strict rules):
+AVAILABLE STRATEGIES (you can choose ANY strategy based on your own analysis):
 ${strategiesDesc}
 
-IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. For example:
-- Momentum strategy can work with smaller gains if trend is strong
-- Swing trading can work with smaller drops if asset shows support
-- Conservative strategy can adapt to current market conditions
+IMPORTANT: 
+- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
+- Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly and choose what YOU think is best for the current market
+- Look for opportunities even if conditions don't match perfectly
 - Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
 
 CONSTRAINTS:
 - Max 25% position size per trade (margin)
@@ -432,10 +435,16 @@ ${positionsDesc}
 MARKETS:
 ${marketsDesc}
 
-STRATEGIES (use as GUIDELINES, not strict rules):
+STRATEGIES (you can choose ANY strategy based on your own analysis):
 ${strategiesDesc}
 
-IMPORTANT: Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. Be PROACTIVE - find trading opportunities, don't wait for perfect conditions. You're competing against other AIs - being too conservative means losing.
+IMPORTANT: 
+- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
+- Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly and choose what YOU think is best for the current market
+- Look for opportunities even if conditions don't match perfectly
+- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
+- You're competing against other AIs - being too conservative means losing
 
 RULES:
 - Max 25% per position (margin)
@@ -569,10 +578,16 @@ Positions: ${positionsDesc}
 Markets:
 ${marketsDesc}
 
-Strategies (use as GUIDELINES, not strict rules):
+Strategies (you can choose ANY strategy based on your own analysis):
 ${strategiesDesc}
 
-IMPORTANT: Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly. Look for opportunities even if conditions don't match perfectly. Be PROACTIVE - find trading opportunities, don't wait for perfect conditions. You're competing against other AIs - being too conservative means losing.
+IMPORTANT: 
+- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
+- Strategy descriptions show IDEAL conditions, but INTERPRET them flexibly and choose what YOU think is best for the current market
+- Look for opportunities even if conditions don't match perfectly
+- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
+- You're competing against other AIs - being too conservative means losing
 
 Rules: Max 25% position size (margin), 3x leverage on AsterDex, min $7 margin.
 

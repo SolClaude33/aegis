@@ -11,6 +11,7 @@ export class TradingEngine {
   private isPaused: boolean = true; // Start paused - user must manually start
   private tradingInterval: NodeJS.Timeout | null = null;
   private balanceInterval: NodeJS.Timeout | null = null;
+  private positionsInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
 
   constructor() {
@@ -30,6 +31,10 @@ export class TradingEngine {
     // Start balance updates immediately (these don't trade, just update data)
     this.updateAgentBalances();
     this.balanceInterval = setInterval(() => this.updateAgentBalances(), 60 * 1000);
+    
+    // Start positions sync immediately and every 30 seconds
+    this.syncAllPositions();
+    this.positionsInterval = setInterval(() => this.syncAllPositions(), 30 * 1000);
     
     // Trading cycles are controlled by resume/pause
     // Don't start trading automatically - user must call resume
@@ -106,6 +111,10 @@ export class TradingEngine {
     if (this.balanceInterval) {
       clearInterval(this.balanceInterval);
       this.balanceInterval = null;
+    }
+    if (this.positionsInterval) {
+      clearInterval(this.positionsInterval);
+      this.positionsInterval = null;
     }
 
     console.log("🛑 Trading Engine Stopped");
@@ -412,6 +421,37 @@ export class TradingEngine {
     
     // Ensure we don't have floating point precision issues
     return parseFloat(truncated.toFixed(decimals));
+  }
+
+  /**
+   * Sync all positions from AsterDex to database for all agents
+   * Called every 30 seconds to keep positions updated with current prices and PnL
+   */
+  private async syncAllPositions() {
+    try {
+      const allAgents = await db.select().from(agents).where(eq(agents.isActive, true));
+      if (allAgents.length === 0) return;
+
+      // Get market data for current prices
+      const firstClient = this.getAgentClient(allAgents[0]);
+      const marketData = await this.fetchMarketData(firstClient);
+
+      if (marketData.length === 0) {
+        console.log("⚠️  No market data available for position sync");
+        return;
+      }
+
+      // Sync positions for each agent
+      for (const agent of allAgents) {
+        try {
+          await this.syncPositionsFromAsterDex(agent.id, marketData);
+        } catch (error) {
+          console.error(`Error syncing positions for ${agent.name}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error syncing all positions:", error);
+    }
   }
 
   /**
