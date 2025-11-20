@@ -604,18 +604,35 @@ export class TradingEngine {
     // Get agent's current positions
     const currentPositions = await this.loadCurrentPositions(agent.id);
     
-    // Convert positions map to array for LLM context
-    const openPositions = Array.from(currentPositions.entries()).map(([asset, size]) => {
-      const marketInfo = marketData.find((m) => m.symbol === asset || m.symbol === asset.replace("USDT", ""));
-      const currentPrice = marketInfo?.currentPrice || 0;
-      const entryPrice = currentPrice; // Simplified - should track actual entry price
+    // Get positions from database with actual entry prices
+    const dbPositions = await db
+      .select()
+      .from(positions)
+      .where(eq(positions.agentId, agent.id));
+    
+    // Convert positions to array for LLM context with actual entry prices
+    const openPositions = dbPositions.map((pos) => {
+      const asset = pos.asset as SupportedCrypto;
+      const marketInfo = marketData.find((m) => m.symbol === asset);
+      const currentPrice = marketInfo?.currentPrice || parseFloat(pos.currentPrice);
+      const entryPrice = parseFloat(pos.entryPrice);
+      const size = parseFloat(pos.size);
+      const leverage = pos.leverage || 3;
+      
+      // Calculate unrealized PnL with leverage
+      let unrealizedPnL = 0;
+      if (pos.side === "LONG") {
+        unrealizedPnL = (currentPrice - entryPrice) * size * leverage;
+      } else if (pos.side === "SHORT") {
+        unrealizedPnL = (entryPrice - currentPrice) * size * leverage;
+      }
       
       return {
         asset,
         size,
         entryPrice,
         currentPrice,
-        unrealizedPnL: (currentPrice - entryPrice) * size,
+        unrealizedPnL,
       };
     });
 
@@ -903,11 +920,17 @@ export class TradingEngine {
       console.log(`✅ Order executed for ${agent.name}: ${orderResponse.orderId}`);
       
       // Sync positions from AsterDex to database after successful trade
+      // This must happen BEFORE creating snapshot to ensure unrealized PnL is calculated
       await this.syncPositionsFromAsterDex(agent.id, marketData);
       
+      // Small delay to ensure positions are synced and prices are updated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // If order was filled, update balance and create snapshot immediately
+      // This ensures the chart reflects the unrealized PnL from the new position
       if (orderResponse.status === "FILLED" || orderResponse.status === "PARTIALLY_FILLED") {
-        // Update balance for this agent and create snapshot
+        // Update balance for this agent and create snapshot with unrealized PnL
+        // The snapshot will include available balance + unrealized PnL from open positions
         await this.createSnapshotForAgent(agent.id);
       }
     } catch (error: any) {
