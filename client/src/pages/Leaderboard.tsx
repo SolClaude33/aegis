@@ -138,7 +138,7 @@ export default function Leaderboard() {
   }, {} as Record<string, PerformanceSnapshot[]>);
 
   const allTimestamps = Array.from(
-    new Set(todaySnapshots.map((s) => new Date(s.timestamp).getTime()))
+    new Set(performanceData.map((s) => new Date(s.timestamp).getTime()))
   ).sort((a, b) => a - b);
 
   const datasets = agents.map((agent) => {
