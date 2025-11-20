@@ -381,11 +381,11 @@ export class GeminiClient implements LLMClient {
   private client: GoogleGenerativeAI;
   private model: string;
 
-  constructor(apiKey: string, model: string = "gemini-1.5-pro") {
+  constructor(apiKey: string, model: string = "gemini-2.5-pro") {
     this.client = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-pro as default (stable and available in v1beta)
-    // gemini-1.5-flash is not available in v1beta API
-    // If Gemini 3 is available, it would be "gemini-3.0-pro" or similar
+    // Use gemini-2.5-pro as default (stable model, available in API)
+    // Alternative: gemini-3-pro-preview (latest, but preview)
+    // See: https://ai.google.dev/gemini-api/docs/models
     this.model = model;
   }
 
