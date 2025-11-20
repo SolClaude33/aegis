@@ -338,12 +338,10 @@ IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET
 - Small PnL fluctuations (-1% to +1%) are normal - let positions develop
 
 TRADING DIRECTIONS EXPLAINED:
-- LONG position (BUY when no position): You profit if the asset price goes UP. Use when you expect upward movement.
-- SHORT position (SELL when no position): You profit if the asset price goes DOWN. Use when you expect downward movement.
-- Closing LONG: SELL to close a LONG position (you profit if price went UP)
-- Closing SHORT: BUY to close a SHORT position (you profit if price went DOWN)
+- LONG position: You profit if the asset price goes UP. Use when you expect upward movement.
+- SHORT position: You profit if the asset price goes DOWN. Use when you expect downward movement.
 
-You can trade BOTH directions! If you think an asset will go DOWN, use SELL to open a SHORT. If you think it will go UP, use BUY to open a LONG.
+You can trade BOTH directions! If you think an asset will go DOWN, open a SHORT position. If you think it will go UP, open a LONG position.
 
 CONSTRAINTS:
 - Max 25% position size per trade (margin) - per asset
@@ -354,7 +352,18 @@ CONSTRAINTS:
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TASK:
-Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
+Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze and decide: OPEN_POSITION/CLOSE_POSITION/HOLD which asset using which strategy.
+
+1. Which action: OPEN_POSITION, CLOSE_POSITION, or HOLD
+   - OPEN_POSITION: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
+   - CLOSE_POSITION: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
+   - HOLD: Wait for better opportunities or let existing positions develop
+2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD)
+3. Direction (only for OPEN_POSITION): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
+4. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
+5. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
+6. Your reasoning (concise explanation - especially important when closing positions)
+7. Confidence level: 0.0-1.0
 
 Position Management Guidelines:
 - Only close positions if: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
@@ -369,8 +378,9 @@ Remember:
 
 Respond with ONLY valid JSON:
 {
-  "action": "BUY" | "SELL" | "HOLD",
+  "action": "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
+  "direction": "LONG" | "SHORT" | null (required if action is OPEN_POSITION),
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-25,
   "reasoning": "brief explanation",
@@ -580,35 +590,36 @@ RISK LIMITS (ENFORCED):
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TRADING DIRECTIONS EXPLAINED:
-- LONG position (BUY when no position): You profit if the asset price goes UP. Use when you expect upward movement.
-- SHORT position (SELL when no position): You profit if the asset price goes DOWN. Use when you expect downward movement.
-- Closing LONG: SELL to close a LONG position (you profit if price went UP)
-- Closing SHORT: BUY to close a SHORT position (you profit if price went DOWN)
+- LONG position: You profit if the asset price goes UP. Use when you expect upward movement.
+- SHORT position: You profit if the asset price goes DOWN. Use when you expect downward movement.
 
-You can trade BOTH directions! If you think an asset will go DOWN, use SELL to open a SHORT. If you think it will go UP, use BUY to open a LONG.
+You can trade BOTH directions! If you think an asset will go DOWN, open a SHORT position. If you think it will go UP, open a LONG position.
 
 TASK:
-Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze the market and decide:
-1. Which action: BUY, SELL, or HOLD
-   - BUY: Open a new position when you see a good opportunity (be proactive here)
-   - SELL: Only close a position if your strategy exit conditions are clearly met (stop-loss, take-profit, or clear trend reversal). Don't sell on minor fluctuations!
+Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze the market and decide:
+1. Which action: OPEN_POSITION, CLOSE_POSITION, or HOLD
+   - OPEN_POSITION: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
+   - CLOSE_POSITION: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
    - HOLD: Wait for better opportunities or let existing positions develop
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
-3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
-4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
-5. Your reasoning (concise explanation - especially important when SELLING to justify why you're closing the position)
-6. Confidence level: 0.0-1.0
+3. Direction (only for OPEN_POSITION): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
+4. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
+5. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
+6. Your reasoning (concise explanation - especially important when closing positions to justify why)
+7. Confidence level: 0.0-1.0
 
 Remember: 
-- Be PROACTIVE to FIND opportunities (BUY), but PATIENT to DEVELOP positions (don't SELL too quickly)
+- Be PROACTIVE to FIND opportunities (both LONG and SHORT), but PATIENT to DEVELOP positions
+- You can profit from BOTH upward (LONG) and downward (SHORT) movements!
 - Small PnL changes (-1% to +1%) are normal market noise - let your positions develop
-- You're competing against other AIs, but premature selling can hurt your performance
+- You're competing against other AIs, but premature closing can hurt your performance
 - You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond ONLY with valid JSON:
 {
-  "action": "BUY" | "SELL" | "HOLD",
+  "action": "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
+  "direction": "LONG" | "SHORT" | null (required if action is OPEN_POSITION),
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-25,
   "reasoning": "your analysis",
@@ -627,8 +638,15 @@ Respond ONLY with valid JSON:
 
       const parsed = JSON.parse(jsonContent);
       
+      const action = parsed.action === "OPEN_POSITION" || parsed.action === "CLOSE_POSITION" 
+        ? parsed.action 
+        : "HOLD";
+      
       const decision = {
-        action: parsed.action === "BUY" || parsed.action === "SELL" ? parsed.action : "HOLD",
+        action: action as "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
+        direction: action === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+          ? parsed.direction 
+          : undefined,
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
