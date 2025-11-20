@@ -212,7 +212,8 @@ export class AnthropicClient implements LLMClient {
   constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
     // Use environment variable or default to latest Claude 3.5 Sonnet
-    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+    // Note: claude-3-5-sonnet-20241022 is deprecated, using 20240620 instead
+    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620";
   }
 
   async analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision> {

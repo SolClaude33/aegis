@@ -572,25 +572,28 @@ export class TradingEngine {
       quantity = position; // Sell entire position
     }
 
-    // Normalize quantity precision
-    let normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
-
-    if (normalizedQuantity <= 0) {
-      console.log(`⚠️  Normalized quantity is too small for ${asset}`);
-      return;
-    }
-
-    // For BUY orders, ensure notional (quantity * price) meets minimum $7 margin requirement
+    // For BUY orders, ensure we meet minimum $7 margin requirement
     // With 3x leverage, we need: notional >= $7 * 3 = $21
-    // After normalization, the notional might be less than required due to rounding down
+    let normalizedQuantity: number;
     if (decision.action === "BUY") {
       const MIN_MARGIN = 7.0; // Minimum margin required
       const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
+      
+      // Calculate minimum quantity needed to meet MIN_NOTIONAL
+      const minQuantityNeeded = MIN_NOTIONAL / marketPrice;
+      
+      // Use the larger of: requested quantity or minimum quantity needed
+      quantity = Math.max(quantity, minQuantityNeeded);
+      
+      // Normalize quantity precision
+      normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
+      
+      // After normalization, check if notional still meets minimum
       let actualNotional = normalizedQuantity * marketPrice;
       
-      // If notional is below minimum, increase quantity by one precision step
+      // If still below minimum after normalization, increase quantity
       if (actualNotional < MIN_NOTIONAL) {
-        // Get precision step (e.g., 0.01 for 2 decimals)
+        // Get precision step (e.g., 0.001 for 3 decimals)
         let decimals = 2;
         if (asterdexSymbol.startsWith("BTC")) {
           decimals = 3; // Match AsterDex precision requirements
@@ -601,8 +604,12 @@ export class TradingEngine {
         }
         const precisionStep = Math.pow(10, -decimals);
         
-        // Increase quantity until notional >= MIN_NOTIONAL
-        while (actualNotional < MIN_NOTIONAL && normalizedQuantity < quantity * 1.1) {
+        // Calculate target quantity to meet MIN_NOTIONAL (with some buffer)
+        const targetQuantity = (MIN_NOTIONAL * 1.01) / marketPrice; // 1% buffer
+        
+        // Increase quantity until we reach target or exceed reasonable limit
+        const maxQuantity = Math.max(quantity * 1.5, targetQuantity);
+        while (actualNotional < MIN_NOTIONAL && normalizedQuantity < maxQuantity) {
           normalizedQuantity += precisionStep;
           normalizedQuantity = this.normalizePrecision(asterdexSymbol, normalizedQuantity);
           actualNotional = normalizedQuantity * marketPrice;
@@ -617,6 +624,14 @@ export class TradingEngine {
         const adjustedMargin = actualNotional / LEVERAGE;
         console.log(`⚙️  Adjusted quantity: ${normalizedQuantity} ${asset} = $${actualNotional.toFixed(2)} notional ($${adjustedMargin.toFixed(2)} margin with ${LEVERAGE}x leverage)`);
       }
+    } else {
+      // For SELL, just normalize
+      normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
+    }
+
+    if (normalizedQuantity <= 0) {
+      console.log(`⚠️  Normalized quantity is too small for ${asset}`);
+      return;
     }
 
     console.log(
