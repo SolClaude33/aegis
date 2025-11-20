@@ -755,15 +755,15 @@ export class TradingEngine {
     let asterdexSide: "BUY" | "SELL";
     let isOpeningPosition = false;
 
-    if (decision.action === "OPEN_POSITION") {
+    if (decision.action === "OPEN") {
       if (!decision.direction || (decision.direction !== "LONG" && decision.direction !== "SHORT")) {
-        console.log(`⚠️  ${agent.name}: OPEN_POSITION requires direction (LONG or SHORT)`);
+        console.log(`⚠️  ${agent.name}: OPEN requires direction (LONG or SHORT)`);
         return;
       }
-      // OPEN_POSITION LONG = BUY, OPEN_POSITION SHORT = SELL
+      // OPEN LONG = BUY, OPEN SHORT = SELL
       asterdexSide = decision.direction === "LONG" ? "BUY" : "SELL";
       isOpeningPosition = true;
-    } else if (decision.action === "CLOSE_POSITION") {
+    } else if (decision.action === "CLOSE") {
       // Need to determine if we're closing LONG or SHORT
       const dbPositions = await db
         .select()
@@ -772,7 +772,7 @@ export class TradingEngine {
         .where(eq(positions.asset, asset));
       
       if (dbPositions.length === 0) {
-        console.log(`⚠️  ${agent.name}: Cannot CLOSE_POSITION - no open position in ${asset}`);
+        console.log(`⚠️  ${agent.name}: Cannot CLOSE - no open position in ${asset}`);
         return;
       }
       
@@ -790,10 +790,10 @@ export class TradingEngine {
       return;
     }
 
-    // For OPEN_POSITION orders, ensure we meet minimum $7 margin requirement
+    // For OPEN orders, ensure we meet minimum $7 margin requirement
     // With 3x leverage, we need: notional >= $7 * 3 = $21
     let normalizedQuantity: number;
-    if (decision.action === "OPEN_POSITION") {
+    if (decision.action === "OPEN") {
       const MIN_MARGIN = 7.0; // Minimum margin required
       const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
       
@@ -843,7 +843,7 @@ export class TradingEngine {
         console.log(`⚙️  Adjusted quantity: ${normalizedQuantity} ${asset} = $${actualNotional.toFixed(2)} notional ($${adjustedMargin.toFixed(2)} margin with ${LEVERAGE}x leverage)`);
       }
     } else {
-      // For CLOSE_POSITION, just normalize
+      // For CLOSE, just normalize
       normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
     }
 
@@ -927,9 +927,11 @@ export class TradingEngine {
         .where(eq(asterdexOrders.id, order.id));
 
       // Log activity with strategy info
-      const actionDesc = decision.action === "OPEN_POSITION" 
+      const actionDesc = decision.action === "OPEN" 
         ? `OPEN ${decision.direction}` 
-        : "CLOSE";
+        : decision.action === "CLOSE" 
+        ? "CLOSE" 
+        : decision.action;
       await db.insert(activityEvents).values({
         agentId: agent.id,
         eventType: isOpeningPosition ? "POSITION_OPENED" : "POSITION_CLOSED",

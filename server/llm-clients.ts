@@ -597,9 +597,9 @@ You can trade BOTH directions! If you think an asset will go DOWN, open a SHORT 
 
 TASK:
 Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze the market and decide:
-1. Which action: OPEN_POSITION, CLOSE_POSITION, or HOLD
-   - OPEN_POSITION: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
-   - CLOSE_POSITION: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
+1. Which action: OPEN, CLOSE, or HOLD
+   - OPEN: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
+   - CLOSE: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
    - HOLD: Wait for better opportunities or let existing positions develop
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
 3. Direction (only for OPEN_POSITION): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
@@ -617,9 +617,9 @@ Remember:
 
 Respond ONLY with valid JSON:
 {
-  "action": "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
+  "action": "OPEN" | "CLOSE" | "HOLD",
   "asset": "BTC" | "ETH" | "BNB" | null,
-  "direction": "LONG" | "SHORT" | null (required if action is OPEN_POSITION),
+  "direction": "LONG" | "SHORT" | null (required if action is OPEN),
   "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
   "positionSizePercent": 0-25,
   "reasoning": "your analysis",
