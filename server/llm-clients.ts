@@ -381,10 +381,11 @@ export class GeminiClient implements LLMClient {
   private client: GoogleGenerativeAI;
   private model: string;
 
-  constructor(apiKey: string, model: string = "gemini-2.5-pro") {
+  constructor(apiKey: string, model: string = "gemini-2.5-flash") {
     this.client = new GoogleGenerativeAI(apiKey);
-    // Use gemini-2.5-pro as default (stable model, available in API)
-    // Alternative: gemini-3-pro-preview (latest, but preview)
+    // Use gemini-2.5-flash as default (best price-performance ratio, ideal for agents)
+    // Supports reasoning, low latency, high-volume tasks
+    // Output token limit: 65,536
     // See: https://ai.google.dev/gemini-api/docs/models
     this.model = model;
   }
