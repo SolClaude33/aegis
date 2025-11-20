@@ -214,9 +214,10 @@ export class AnthropicClient implements LLMClient {
   constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
     // Use environment variable or default to latest Claude Sonnet
-    // Using claude-3-5-sonnet-20241022 (stable and widely available)
-    // Note: claude-3-7-sonnet-20250219 may not be available yet, using 3.5 as fallback
-    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+    // Using claude-sonnet-4-5-20250929 (Active model, recommended replacement)
+    // claude-3-5-sonnet models were retired Oct 28, 2025
+    // See: https://platform.claude.com/docs/en/about-claude/model-deprecations
+    this.model = model || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929";
   }
 
   async analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision> {
@@ -380,11 +381,11 @@ export class GeminiClient implements LLMClient {
   private client: GoogleGenerativeAI;
   private model: string;
 
-  constructor(apiKey: string, model: string = "gemini-1.5-flash") {
+  constructor(apiKey: string, model: string = "gemini-1.5-pro") {
     this.client = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-flash as default (stable and reliable)
-    // gemini-2.0-flash-exp may not be available or may have issues
-    // If Gemini 3 is available, it would be "gemini-3.0-flash" or similar
+    // Use gemini-1.5-pro as default (stable and available in v1beta)
+    // gemini-1.5-flash is not available in v1beta API
+    // If Gemini 3 is available, it would be "gemini-3.0-pro" or similar
     this.model = model;
   }
 
