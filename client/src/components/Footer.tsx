@@ -1,7 +1,36 @@
-import { Twitter, ExternalLink } from "lucide-react";
+import { Twitter, ExternalLink, Github, Copy, Check } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
   const TWITTER_URL = "https://x.com/aegisarena";
+  const GITHUB_URL = "https://github.com/AegisArena";
+  const CONTRACT_ADDRESS = "SOON"; // Replace with actual contract address when token launches
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCA = async () => {
+    if (CONTRACT_ADDRESS === "SOON") {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(CONTRACT_ADDRESS);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Contract address copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy contract address",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <footer className="border-t border-border bg-card/50 backdrop-blur mt-auto">
@@ -32,8 +61,34 @@ export default function Footer() {
               <ExternalLink className="w-3 h-3" />
             </a>
 
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-mono"
+            >
+              <Github className="w-4 h-4" />
+              <span>GitHub</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-              <span>CA: SOON</span>
+              <span>CA: {CONTRACT_ADDRESS}</span>
+              {CONTRACT_ADDRESS !== "SOON" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyCA}
+                  className="h-6 w-6 p-0 hover:bg-primary/20"
+                  title="Copy contract address"
+                >
+                  {copied ? (
+                    <Check className="w-3 h-3 text-primary" />
+                  ) : (
+                    <Copy className="w-3 h-3" />
+                  )}
+                </Button>
+              )}
             </div>
           </div>
 
