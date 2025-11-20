@@ -16,10 +16,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { TrendingUp, TrendingDown, Activity, Target, Trophy } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Target, Trophy, ExternalLink } from "lucide-react";
 import AgentAvatar from "@/components/AgentAvatar";
 import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { Position } from "@shared/schema";
 
 ChartJS.register(
   CategoryScale,
@@ -92,6 +94,15 @@ export default function Leaderboard() {
     queryKey: ["/api/performance"],
     refetchInterval: 60000, // Refresh every 1 minute to show updated PnL
   });
+
+  // Fetch all open positions
+  const { data: allPositions } = useQuery<Position[]>({
+    queryKey: ["/api/positions"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Get agent names for display
+  const agentMap = new Map(agents?.map(agent => [agent.id, agent.name]) || []);
 
   if (agentsLoading || performanceLoading) {
     return (
@@ -417,6 +428,102 @@ export default function Leaderboard() {
           </div>
         </Card>
       </div>
+
+      {/* Open Positions Section */}
+      <Card className="p-6 bg-card border-card-border">
+        <h2 className="text-2xl font-bold text-primary mb-4 font-cyber flex items-center gap-2">
+          <Activity className="w-6 h-6" />
+          Open Positions ({allPositions?.length || 0})
+        </h2>
+        <p className="text-sm text-muted-foreground font-mono mb-4">
+          Current active positions across all AI agents (3x leverage)
+        </p>
+        {allPositions && allPositions.length > 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-mono">Agent</TableHead>
+                  <TableHead className="font-mono">Asset</TableHead>
+                  <TableHead className="font-mono">Side</TableHead>
+                  <TableHead className="font-mono">Size</TableHead>
+                  <TableHead className="font-mono">Entry Price</TableHead>
+                  <TableHead className="font-mono">Current Price</TableHead>
+                  <TableHead className="font-mono">Leverage</TableHead>
+                  <TableHead className="font-mono">Unrealized PnL</TableHead>
+                  <TableHead className="font-mono">Strategy</TableHead>
+                  <TableHead className="font-mono">Tx Hash</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allPositions.map((position) => {
+                  const agentName = agentMap.get(position.agentId) || "Unknown";
+                  const agentColor = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
+                  const positionPnL = Number(position.unrealizedPnL);
+                  const positionIsPositive = positionPnL >= 0;
+                  
+                  return (
+                    <TableRow key={position.id}>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className="font-mono"
+                          style={{ borderColor: agentColor.border, color: agentColor.border }}
+                        >
+                          {agentName}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono font-bold">{position.asset}</TableCell>
+                      <TableCell>
+                        <Badge variant={position.side === "LONG" || position.side === "BUY" ? "default" : "destructive"}>
+                          {position.side}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono">{Number(position.size).toFixed(4)}</TableCell>
+                      <TableCell className="font-mono">${Number(position.entryPrice).toLocaleString()}</TableCell>
+                      <TableCell className="font-mono">${Number(position.currentPrice).toLocaleString()}</TableCell>
+                      <TableCell className="font-mono">{position.leverage}x</TableCell>
+                      <TableCell
+                        className={`font-mono font-bold ${
+                          positionIsPositive ? "text-success" : "text-destructive"
+                        }`}
+                      >
+                        {positionIsPositive ? "+" : ""}${positionPnL.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {position.strategy && (
+                          <Badge variant="secondary" className="font-mono text-xs">
+                            {position.strategy}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <a
+                          href={`https://bscscan.com/tx/${position.openTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline font-mono text-xs"
+                        >
+                          <span>
+                            {position.openTxHash.slice(0, 6)}...{position.openTxHash.slice(-4)}
+                          </span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground font-mono">
+            <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No open positions</p>
+            <p className="text-xs mt-2">Positions will appear here when agents open trades</p>
+          </div>
+        )}
+      </Card>
 
       <LiveTradingPanel limit={8} />
 
