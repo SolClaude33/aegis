@@ -532,13 +532,15 @@ IMPORTANT:
 - You're competing against other AIs - being too conservative means losing
 
 RULES:
-- Max 25% per position (margin)
+- Max 25% per position (margin) - per asset
 - Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
 - Max 5% loss per trade
 - Minimum trade: $7 margin
+- MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. Diversify across all 3 pairs if you see opportunities.
+- CRITICAL: You can ONLY SELL an asset if you have an OPEN POSITION in that asset. Check your "Positions" above before deciding to SELL. If you have no position in an asset, you can only BUY or HOLD, never SELL.
 - Choose best strategy for current conditions
 
-Be PROACTIVE and find trading opportunities. Prefer BUY/SELL over HOLD when opportunities exist.
+Be PROACTIVE and find trading opportunities. Prefer BUY/SELL over HOLD when opportunities exist. You can trade different assets even if you already have positions in others!
 
 Return JSON only:
 {
