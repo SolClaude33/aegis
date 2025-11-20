@@ -404,10 +404,31 @@ export class GeminiClient implements LLMClient {
 
       const result = await model.generateContent(prompt);
       const response = result.response;
-      const content = response.text();
+      
+      // Try multiple ways to get the content
+      let content = "";
+      try {
+        content = response.text();
+      } catch (e) {
+        // If text() fails, try accessing candidates
+        const candidates = response.candidates;
+        if (candidates && candidates.length > 0) {
+          const candidate = candidates[0];
+          if (candidate.content && candidate.content.parts) {
+            content = candidate.content.parts
+              .map((part: any) => part.text || "")
+              .join("");
+          }
+        }
+      }
 
-      if (!content) {
+      if (!content || content.trim().length === 0) {
         console.error(`[Gemini] No response content from model ${this.model}`);
+        console.error(`[Gemini] Response object:`, {
+          candidates: response.candidates?.length || 0,
+          promptFeedback: response.promptFeedback,
+          usageMetadata: response.usageMetadata,
+        });
         return this.getDefaultDecision("No response from Gemini");
       }
 

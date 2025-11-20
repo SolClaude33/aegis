@@ -507,11 +507,27 @@ export class TradingEngine {
         const marketInfo = marketData.find((m) => m.symbol === normalizedSymbol);
         const currentPrice = marketInfo?.currentPrice || parseFloat(pos.markPrice || pos.marketPrice || "0");
         const entryPrice = parseFloat(pos.entryPrice || pos.avgPrice || currentPrice.toString());
-        const unrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
         const leverage = parseFloat(pos.leverage || "3");
         
+        // Calculate unrealized PnL manually if not provided by AsterDex
+        // For LONG: PnL = (currentPrice - entryPrice) * size * leverage
+        // For SHORT: PnL = (entryPrice - currentPrice) * size * leverage
+        let unrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+        
+        // If AsterDex didn't provide PnL, calculate it manually
+        if (Math.abs(unrealizedPnL) < 0.01 && Math.abs(positionAmt) > 0.000001 && currentPrice > 0 && entryPrice > 0) {
+          const positionSize = Math.abs(positionAmt);
+          if (positionAmt > 0) {
+            // LONG position
+            unrealizedPnL = (currentPrice - entryPrice) * positionSize * leverage;
+          } else {
+            // SHORT position
+            unrealizedPnL = (entryPrice - currentPrice) * positionSize * leverage;
+          }
+        }
+        
         // Calculate unrealized PnL percentage
-        const positionValue = Math.abs(positionAmt) * entryPrice;
+        const positionValue = Math.abs(positionAmt) * entryPrice * leverage;
         const unrealizedPnLPercentage = positionValue > 0 ? (unrealizedPnL / positionValue) * 100 : 0;
 
         const existingPos = existingPositionsMap.get(normalizedSymbol);
