@@ -152,15 +152,22 @@ RISK LIMITS (ENFORCED):
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TASK:
-Be PROACTIVE and find trading opportunities. Analyze the market and decide:
-1. Which action: BUY, SELL, or HOLD (prefer BUY/SELL over HOLD when opportunities exist)
+Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze the market and decide:
+1. Which action: BUY, SELL, or HOLD
+   - BUY: Open a new position when you see a good opportunity (be proactive here)
+   - SELL: Only close a position if your strategy exit conditions are clearly met (stop-loss, take-profit, or clear trend reversal). Don't sell on minor fluctuations!
+   - HOLD: Wait for better opportunities or let existing positions develop
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
 4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
-5. Your reasoning (concise)
+5. Your reasoning (concise explanation - especially important when SELLING to justify why you're closing the position)
 6. Confidence level: 0.0-1.0
 
-Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect. You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
+Remember: 
+- Be PROACTIVE to FIND opportunities (BUY), but PATIENT to DEVELOP positions (don't SELL too quickly)
+- Small PnL changes (-1% to +1%) are normal market noise - let your positions develop
+- You're competing against other AIs, but premature selling can hurt your performance
+- You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond ONLY with valid JSON:
 {
@@ -315,7 +322,10 @@ IMPORTANT: Strategy descriptions show IDEAL conditions, but you should INTERPRET
 - Momentum strategy can work with smaller gains if trend is strong
 - Swing trading can work with smaller drops if asset shows support
 - Conservative strategy can adapt to current market conditions
-- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Be PROACTIVE when FINDING opportunities (BUY) - don't wait for perfect conditions
+- Be PATIENT when MANAGING positions (SELL) - positions need time to develop. Don't sell on minor fluctuations
+- Only SELL when: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
+- Small PnL fluctuations (-1% to +1%) are normal - let positions develop
 
 CONSTRAINTS:
 - Max 25% position size per trade (margin) - per asset
@@ -326,8 +336,17 @@ CONSTRAINTS:
 - MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
 
 TASK:
-Be PROACTIVE and find trading opportunities. Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
-Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect. You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
+Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze and decide: BUY/SELL/HOLD which asset using which strategy.
+
+SELL Guidelines:
+- Only SELL if: (1) Stop-loss is hit, (2) Take-profit target reached, (3) Strategy exit conditions clearly met, or (4) Fundamental trend reversal
+- Small PnL fluctuations (-1% to +1%) are normal - let positions develop
+- Don't sell too quickly on minor market movements
+
+Remember: 
+- Be PROACTIVE to FIND opportunities (BUY), but PATIENT to DEVELOP positions (SELL only when necessary)
+- You're competing against other AIs, but premature selling can hurt performance
+- You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond with ONLY valid JSON:
 {
@@ -526,8 +545,10 @@ ${strategiesDesc}
 IMPORTANT: 
 - You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
 - Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly and choose what YOU think is best for the current market
-- Look for opportunities even if conditions don't match perfectly
-- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Be PROACTIVE when FINDING opportunities (BUY) - look for entry points even if conditions don't match perfectly
+- Be PATIENT when MANAGING positions (SELL) - positions need time to develop. Don't sell too quickly on minor fluctuations
+- Only SELL when: (1) Stop-loss is hit, (2) Take-profit target is reached, (3) Strategy exit conditions are clearly met, or (4) Fundamental change in trend
+- Small PnL fluctuations (-1% to +1%) are normal - let positions develop unless your strategy explicitly requires exit
 - Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
 
 RISK LIMITS (ENFORCED):
@@ -544,18 +565,22 @@ CRITICAL TRADING RULES:
 - To close a position, you must SELL the same asset you bought. You cannot sell an asset you don't own.
 
 TASK:
-Be PROACTIVE and find trading opportunities. Analyze the market and decide:
-1. Which action: BUY, SELL, or HOLD (prefer BUY/SELL over HOLD when opportunities exist)
-   - BUY: Open a new position or add to existing position in an asset
-   - SELL: Close an existing position in an asset (ONLY if you have an open position in that asset)
-   - HOLD: Wait for better opportunities
+Be PROACTIVE when finding NEW opportunities (BUY), but PATIENT when managing EXISTING positions (SELL). Analyze the market and decide:
+1. Which action: BUY, SELL, or HOLD
+   - BUY: Open a new position when you see a good opportunity (be proactive here)
+   - SELL: Only close a position if your strategy exit conditions are clearly met (stop-loss, take-profit, or clear trend reversal). Don't sell on minor fluctuations!
+   - HOLD: Wait for better opportunities or let existing positions develop
 2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
 3. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
 4. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
-5. Your reasoning (concise explanation of your decision)
+5. Your reasoning (concise explanation - especially important when SELLING to justify why you're closing the position)
 6. Confidence level: 0.0-1.0
 
-Remember: You're competing against other AIs. Being too conservative means losing. Look for opportunities and trade when you see potential, even if conditions aren't perfect. You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
+Remember: 
+- Be PROACTIVE to FIND opportunities (BUY), but PATIENT to DEVELOP positions (don't SELL too quickly)
+- Small PnL changes (-1% to +1%) are normal market noise - let your positions develop
+- You're competing against other AIs, but premature selling can hurt your performance
+- You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
 
 Respond ONLY with valid JSON:
 {
