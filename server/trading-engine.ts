@@ -751,17 +751,49 @@ export class TradingEngine {
     const notional = margin * LEVERAGE; // Notional value in AsterDex (e.g., $75)
     let quantity = notional / marketPrice; // Quantity for the notional value
 
-    // For SELL, get actual position size
-    if (decision.action === "SELL") {
+    // Convert LLM decision to AsterDex side (BUY/SELL)
+    let asterdexSide: "BUY" | "SELL";
+    let isOpeningPosition = false;
+
+    if (decision.action === "OPEN_POSITION") {
+      if (!decision.direction || (decision.direction !== "LONG" && decision.direction !== "SHORT")) {
+        console.log(`⚠️  ${agent.name}: OPEN_POSITION requires direction (LONG or SHORT)`);
+        return;
+      }
+      // OPEN_POSITION LONG = BUY, OPEN_POSITION SHORT = SELL
+      asterdexSide = decision.direction === "LONG" ? "BUY" : "SELL";
+      isOpeningPosition = true;
+    } else if (decision.action === "CLOSE_POSITION") {
+      // Need to determine if we're closing LONG or SHORT
+      const dbPositions = await db
+        .select()
+        .from(positions)
+        .where(eq(positions.agentId, agent.id))
+        .where(eq(positions.asset, asset));
+      
+      if (dbPositions.length === 0) {
+        console.log(`⚠️  ${agent.name}: Cannot CLOSE_POSITION - no open position in ${asset}`);
+        return;
+      }
+      
+      const position = dbPositions[0];
+      // Closing LONG = SELL, Closing SHORT = BUY
+      asterdexSide = position.side === "LONG" ? "SELL" : "BUY";
+      isOpeningPosition = false;
+      
+      // For CLOSE_POSITION, get actual position size
       const currentPositions = await this.loadCurrentPositions(agent.id);
-      const position = currentPositions.get(asset) || 0; // Use normalized symbol (BTC, ETH, BNB)
-      quantity = position; // Sell entire position
+      const positionSize = currentPositions.get(asset) || 0;
+      quantity = positionSize; // Close entire position
+    } else {
+      console.log(`⚠️  ${agent.name}: Invalid action ${decision.action}`);
+      return;
     }
 
-    // For BUY orders, ensure we meet minimum $7 margin requirement
+    // For OPEN_POSITION orders, ensure we meet minimum $7 margin requirement
     // With 3x leverage, we need: notional >= $7 * 3 = $21
     let normalizedQuantity: number;
-    if (decision.action === "BUY") {
+    if (decision.action === "OPEN_POSITION") {
       const MIN_MARGIN = 7.0; // Minimum margin required
       const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
       
@@ -811,7 +843,7 @@ export class TradingEngine {
         console.log(`⚙️  Adjusted quantity: ${normalizedQuantity} ${asset} = $${actualNotional.toFixed(2)} notional ($${adjustedMargin.toFixed(2)} margin with ${LEVERAGE}x leverage)`);
       }
     } else {
-      // For SELL, just normalize
+      // For CLOSE_POSITION, just normalize
       normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
     }
 
@@ -824,21 +856,21 @@ export class TradingEngine {
       `🤖 ${agent.name} - ${decision.action} ${normalizedQuantity} ${asset} using ${decision.strategy} strategy`
     );
 
-    // Create order in database with LLM decision metadata
-    const [order] = await db
-      .insert(asterdexOrders)
-      .values({
-        agentId: agent.id,
-        symbol: asterdexSymbol,
-        side: decision.action,
-        type: "MARKET",
-        quantity: normalizedQuantity.toString(),
-        status: "PENDING",
-        strategy: decision.strategy,
-        llmReasoning: decision.reasoning,
-        llmConfidence: decision.confidence.toString(),
-      })
-      .returning();
+      // Create order in database with LLM decision metadata
+      const [order] = await db
+        .insert(asterdexOrders)
+        .values({
+          agentId: agent.id,
+          symbol: asterdexSymbol,
+          side: asterdexSide,
+          type: "MARKET",
+          quantity: normalizedQuantity.toString(),
+          status: "PENDING",
+          strategy: decision.strategy,
+          llmReasoning: decision.reasoning,
+          llmConfidence: decision.confidence.toString(),
+        })
+        .returning();
 
     try {
       // Get agent's individual AsterDex client
@@ -873,7 +905,7 @@ export class TradingEngine {
       // Execute order on AsterDex with agent's credentials
       const orderResponse = await agentClient.createOrder({
         symbol: asterdexSymbol,
-        side: decision.action,
+        side: asterdexSide,
         type: "MARKET",
         quantity: formattedQuantity,
       });
@@ -895,10 +927,13 @@ export class TradingEngine {
         .where(eq(asterdexOrders.id, order.id));
 
       // Log activity with strategy info
+      const actionDesc = decision.action === "OPEN_POSITION" 
+        ? `OPEN ${decision.direction}` 
+        : "CLOSE";
       await db.insert(activityEvents).values({
         agentId: agent.id,
-        eventType: decision.action === "BUY" ? "POSITION_OPENED" : "POSITION_CLOSED",
-        message: `${decision.action} ${normalizedQuantity.toFixed(6)} ${asset} using ${decision.strategy} - ${decision.reasoning}`,
+        eventType: isOpeningPosition ? "POSITION_OPENED" : "POSITION_CLOSED",
+        message: `${actionDesc} ${normalizedQuantity.toFixed(6)} ${asset} using ${decision.strategy} - ${decision.reasoning}`,
         asset,
         strategy: decision.strategy,
         txHash: orderResponse.txHash,

@@ -39,8 +39,9 @@ export type StrategyType = keyof typeof TRADING_STRATEGIES;
 
 // LLM Decision response format
 export interface LLMTradingDecision {
-  action: "BUY" | "SELL" | "HOLD";
+  action: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
   asset: SupportedCrypto | null;
+  direction?: "LONG" | "SHORT"; // Required when action is OPEN_POSITION
   strategy: StrategyType | null;
   positionSizePercent: number; // 0-100
   reasoning: string;
@@ -186,9 +187,16 @@ Respond ONLY with valid JSON:
       const parsed = JSON.parse(content);
       
       // Validate and sanitize
+      const action = parsed.action === "OPEN_POSITION" || parsed.action === "CLOSE_POSITION" 
+        ? parsed.action 
+        : "HOLD";
+      
       return {
-        action: parsed.action === "BUY" || parsed.action === "SELL" ? parsed.action : "HOLD",
+        action: action as "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
+        direction: action === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+          ? parsed.direction 
+          : undefined,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
@@ -206,6 +214,7 @@ Respond ONLY with valid JSON:
     return {
       action: "HOLD",
       asset: null,
+      direction: undefined,
       strategy: null,
       positionSizePercent: 0,
       reasoning: reason,
@@ -397,6 +406,7 @@ Respond with ONLY valid JSON:
     return {
       action: "HOLD",
       asset: null,
+      direction: undefined,
       strategy: null,
       positionSizePercent: 0,
       reasoning: reason,
@@ -651,6 +661,7 @@ Respond ONLY with valid JSON:
     return {
       action: "HOLD",
       asset: null,
+      direction: undefined,
       strategy: null,
       positionSizePercent: 0,
       reasoning: reason,
@@ -796,6 +807,7 @@ JSON only:
     return {
       action: "HOLD",
       asset: null,
+      direction: undefined,
       strategy: null,
       positionSizePercent: 0,
       reasoning: reason,
