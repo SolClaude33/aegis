@@ -213,9 +213,10 @@ export class AnthropicClient implements LLMClient {
 
   constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
-    // Use environment variable or default to latest Claude 3.7 Sonnet
-    // Using claude-3-7-sonnet-20250219 (latest stable model as of Jan 2025)
-    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-7-sonnet-20250219";
+    // Use environment variable or default to latest Claude Sonnet
+    // Using claude-3-5-sonnet-20241022 (stable and widely available)
+    // Note: claude-3-7-sonnet-20250219 may not be available yet, using 3.5 as fallback
+    this.model = model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
   }
 
   async analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision> {
@@ -379,8 +380,11 @@ export class GeminiClient implements LLMClient {
   private client: GoogleGenerativeAI;
   private model: string;
 
-  constructor(apiKey: string, model: string = "gemini-2.0-flash-exp") {
+  constructor(apiKey: string, model: string = "gemini-1.5-flash") {
     this.client = new GoogleGenerativeAI(apiKey);
+    // Use gemini-1.5-flash as default (stable and reliable)
+    // gemini-2.0-flash-exp may not be available or may have issues
+    // If Gemini 3 is available, it would be "gemini-3.0-flash" or similar
     this.model = model;
   }
 
@@ -401,12 +405,24 @@ export class GeminiClient implements LLMClient {
       const response = result.response;
       const content = response.text();
 
-      if (!content) throw new Error("No response from Gemini");
+      if (!content) {
+        console.error(`[Gemini] No response content from model ${this.model}`);
+        return this.getDefaultDecision("No response from Gemini");
+      }
 
-      return this.parseResponse(content);
-    } catch (error) {
+      console.log(`[Gemini] Raw response (first 200 chars): ${content.substring(0, 200)}`);
+      const decision = this.parseResponse(content);
+      console.log(`[Gemini] Parsed decision:`, decision);
+      return decision;
+    } catch (error: any) {
       console.error(`[Gemini] Error analyzing market:`, error);
-      return this.getDefaultDecision("Error calling Gemini API");
+      console.error(`[Gemini] Error details:`, {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack?.substring(0, 200),
+        model: this.model,
+      });
+      return this.getDefaultDecision(`Error calling Gemini API: ${error?.message || "Unknown error"}`);
     }
   }
 
@@ -468,9 +484,16 @@ Return JSON only:
 
   private parseResponse(content: string): LLMTradingDecision {
     try {
-      const parsed = JSON.parse(content);
+      // Try to extract JSON if wrapped in markdown code blocks
+      let jsonContent = content.trim();
+      const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[0];
+      }
+
+      const parsed = JSON.parse(jsonContent);
       
-      return {
+      const decision = {
         action: parsed.action === "BUY" || parsed.action === "SELL" ? parsed.action : "HOLD",
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
@@ -480,9 +503,23 @@ Return JSON only:
         reasoning: parsed.reasoning || "No reasoning provided",
         confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
       };
-    } catch (error) {
+
+      // Log if decision is HOLD to help debug
+      if (decision.action === "HOLD") {
+        console.log(`[Gemini] Decision is HOLD. Parsed data:`, {
+          action: parsed.action,
+          asset: parsed.asset,
+          strategy: parsed.strategy,
+          positionSizePercent: parsed.positionSizePercent,
+          reasoning: parsed.reasoning,
+        });
+      }
+
+      return decision;
+    } catch (error: any) {
       console.error("[Gemini] Failed to parse response:", content);
-      return this.getDefaultDecision("Invalid JSON response");
+      console.error("[Gemini] Parse error:", error?.message);
+      return this.getDefaultDecision(`Invalid JSON response: ${error?.message || "Parse error"}`);
     }
   }
 
