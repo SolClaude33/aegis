@@ -101,9 +101,6 @@ export default function Leaderboard() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Get agent names for display
-  const agentMap = new Map(agents?.map(agent => [agent.id, agent.name]) || []);
-
   if (agentsLoading || performanceLoading) {
     return (
       <div className="min-h-screen bg-background p-6 space-y-6">
@@ -128,6 +125,8 @@ export default function Leaderboard() {
 
   // Prepare chart data - filter to today's data only
   const agentMap = new Map(agents.map((a) => [a.id, a]));
+  // Map for agent names (used in positions table)
+  const agentNameMap = new Map(agents.map(agent => [agent.id, agent.name]));
   
   // Filter snapshots to today only (start of day to now)
   const todayStart = new Date();
@@ -457,7 +456,7 @@ export default function Leaderboard() {
               </TableHeader>
               <TableBody>
                 {allPositions.map((position) => {
-                  const agentName = agentMap.get(position.agentId) || "Unknown";
+                  const agentName = agentNameMap.get(position.agentId) || "Unknown";
                   const agentColor = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
                   const positionPnL = Number(position.unrealizedPnL);
                   const positionIsPositive = positionPnL >= 0;
