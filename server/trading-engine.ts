@@ -820,6 +820,8 @@ export class TradingEngine {
       // OPEN LONG = BUY, OPEN SHORT = SELL
       asterdexSide = decision.direction === "LONG" ? "BUY" : "SELL";
       isOpeningPosition = true;
+      
+      console.log(`✅ [${agent.name}] Opening ${decision.direction} position: ${decision.direction} → ${asterdexSide} for ${asset}`);
     } else if (isCloseAction) {
       // Need to determine if we're closing LONG or SHORT
       const dbPositions = await db
