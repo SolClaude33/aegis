@@ -22,7 +22,7 @@ import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Position } from "@shared/schema";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
 ChartJS.register(
@@ -301,30 +301,8 @@ export default function Leaderboard() {
     };
   }, [allTimestamps, datasets]);
 
-  if (agentsLoading || performanceLoading) {
-    return (
-      <div className="min-h-screen bg-background p-6 space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-96 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!agents || !performanceData) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-white/80">No data available</p>
-      </div>
-    );
-  }
-
   // Function to update chart highlighting based on hovered agent
-  const updateChartHighlight = (chart: any, agentName: string | null) => {
+  const updateChartHighlight = useCallback((chart: any, agentName: string | null) => {
     if (!chart || !chart.data || !chart.data.datasets) return;
     
     chart.data.datasets.forEach((dataset: any) => {
@@ -349,14 +327,36 @@ export default function Leaderboard() {
     });
     
     chart.update('none');
-  };
+  }, []);
 
   // Update chart when hoveredAgent changes
   useEffect(() => {
     if (chartRef.current) {
       updateChartHighlight(chartRef.current, hoveredAgent);
     }
-  }, [hoveredAgent]);
+  }, [hoveredAgent, updateChartHighlight]);
+
+  if (agentsLoading || performanceLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6 space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-96 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!agents || !performanceData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-white/80">No data available</p>
+      </div>
+    );
+  }
 
   const chartOptions = {
     responsive: true,
