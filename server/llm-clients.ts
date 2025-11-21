@@ -189,15 +189,20 @@ Respond ONLY with valid JSON:
     try {
       const parsed = JSON.parse(content);
       
-      // Validate and sanitize
-      const action = parsed.action === "OPEN_POSITION" || parsed.action === "CLOSE_POSITION" 
-        ? parsed.action 
-        : "HOLD";
+      // Normalize action: accept both "OPEN"/"CLOSE" and "OPEN_POSITION"/"CLOSE_POSITION"
+      let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
+      if (parsed.action === "OPEN" || parsed.action === "OPEN_POSITION") {
+        normalizedAction = "OPEN_POSITION";
+      } else if (parsed.action === "CLOSE" || parsed.action === "CLOSE_POSITION") {
+        normalizedAction = "CLOSE_POSITION";
+      } else {
+        normalizedAction = "HOLD";
+      }
       
       return {
-        action: action as "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
+        action: normalizedAction,
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
-        direction: action === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+        direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
           ? parsed.direction 
           : undefined,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
@@ -399,9 +404,22 @@ Respond with ONLY valid JSON:
 
       const parsed = JSON.parse(jsonMatch[0]);
       
+      // Normalize action: accept "OPEN"/"CLOSE", "OPEN_POSITION"/"CLOSE_POSITION", or legacy "BUY"/"SELL"
+      let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
+      if (parsed.action === "OPEN" || parsed.action === "OPEN_POSITION" || parsed.action === "BUY") {
+        normalizedAction = "OPEN_POSITION";
+      } else if (parsed.action === "CLOSE" || parsed.action === "CLOSE_POSITION" || parsed.action === "SELL") {
+        normalizedAction = "CLOSE_POSITION";
+      } else {
+        normalizedAction = "HOLD";
+      }
+      
       return {
-        action: parsed.action === "BUY" || parsed.action === "SELL" ? parsed.action : "HOLD",
+        action: normalizedAction,
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
+        direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+          ? parsed.direction 
+          : undefined,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
@@ -641,13 +659,32 @@ Respond ONLY with valid JSON:
 
       const parsed = JSON.parse(jsonContent);
       
-      const action = parsed.action === "OPEN_POSITION" || parsed.action === "CLOSE_POSITION" 
-        ? parsed.action 
-        : "HOLD";
+      // Debug: log what we parsed
+      console.log(`[Gemini] 🔍 Parsed JSON action:`, {
+        raw: parsed.action,
+        type: typeof parsed.action,
+        trimmed: String(parsed.action || "").trim(),
+        direction: parsed.direction,
+      });
+      
+      // Normalize action: accept both "OPEN"/"CLOSE" and "OPEN_POSITION"/"CLOSE_POSITION"
+      let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
+      const parsedAction = String(parsed.action || "").trim().toUpperCase();
+      
+      if (parsedAction === "OPEN" || parsedAction === "OPEN_POSITION") {
+        normalizedAction = "OPEN_POSITION";
+        console.log(`[Gemini] ✅ Normalized "${parsed.action}" → OPEN_POSITION`);
+      } else if (parsedAction === "CLOSE" || parsedAction === "CLOSE_POSITION") {
+        normalizedAction = "CLOSE_POSITION";
+        console.log(`[Gemini] ✅ Normalized "${parsed.action}" → CLOSE_POSITION`);
+      } else {
+        normalizedAction = "HOLD";
+        console.log(`[Gemini] ⚠️  Unknown action: "${parsed.action}" (normalized: "${parsedAction}"), defaulting to HOLD`);
+      }
       
       const decision = {
-        action: action as "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD",
-        direction: action === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+        action: normalizedAction,
+        direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
           ? parsed.direction 
           : undefined,
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
@@ -663,10 +700,19 @@ Respond ONLY with valid JSON:
       if (decision.action === "HOLD") {
         console.log(`[Gemini] Decision is HOLD. Parsed data:`, {
           action: parsed.action,
+          parsedActionNormalized: parsedAction,
+          normalizedAction,
           asset: parsed.asset,
           strategy: parsed.strategy,
           positionSizePercent: parsed.positionSizePercent,
           reasoning: parsed.reasoning,
+        });
+      } else {
+        console.log(`[Gemini] ✅ Decision parsed successfully:`, {
+          action: decision.action,
+          direction: decision.direction,
+          asset: decision.asset,
+          strategy: decision.strategy,
         });
       }
 
@@ -809,9 +855,22 @@ JSON only:
 
       const parsed = JSON.parse(jsonMatch[0]);
       
+      // Normalize action: accept "OPEN"/"CLOSE", "OPEN_POSITION"/"CLOSE_POSITION", or legacy "BUY"/"SELL"
+      let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
+      if (parsed.action === "OPEN" || parsed.action === "OPEN_POSITION" || parsed.action === "BUY") {
+        normalizedAction = "OPEN_POSITION";
+      } else if (parsed.action === "CLOSE" || parsed.action === "CLOSE_POSITION" || parsed.action === "SELL") {
+        normalizedAction = "CLOSE_POSITION";
+      } else {
+        normalizedAction = "HOLD";
+      }
+      
       return {
-        action: parsed.action === "BUY" || parsed.action === "SELL" ? parsed.action : "HOLD",
+        action: normalizedAction,
         asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
+        direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+          ? parsed.direction 
+          : undefined,
         strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
           ? parsed.strategy 
           : null,
