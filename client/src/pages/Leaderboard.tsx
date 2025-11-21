@@ -22,7 +22,7 @@ import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Position } from "@shared/schema";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 ChartJS.register(
@@ -52,6 +52,17 @@ const whiteLegendTextPlugin = {
 };
 
 ChartJS.register(whiteLegendTextPlugin);
+
+// Plugin to store chart instance for hover interactions
+const chartInstancePlugin = {
+  id: 'chartInstanceStorage',
+  beforeInit: (chart: any) => {
+    // Store chart instance in a global map or on the chart element
+    (chart as any).__instanceRef = chart;
+  },
+};
+
+ChartJS.register(chartInstancePlugin);
 
 // Set global defaults for all charts
 ChartJS.defaults.plugins.legend.labels.color = '#FFFFFF';
@@ -94,8 +105,19 @@ const DEFAULT_COLOR = {
 
 type TimeRange = "1D" | "1W" | "1M" | "3M";
 
+// Map agent names to image filenames
+const AGENT_IMAGE_MAP: Record<string, string> = {
+  "GPT-5": "/agent-images/gpt-6f42d0d0.png",
+  "Gemini-2": "/agent-images/gemini-c5de070d.png",
+  "Grok-4": "/agent-images/grok-caa3613a.png",
+  "Claude-3.5": "/agent-images/claude-a9ebc5b0.png",
+  "DeepSeek-R1": "/agent-images/deepseek-fda9d405.png",
+};
+
 export default function Leaderboard() {
   const [timeRange, setTimeRange] = useState<TimeRange>("1M");
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const chartRef = useRef<any>(null);
 
   const { data: agents, isLoading: agentsLoading } = useQuery<Agent[]>({
     queryKey: ["/api/agents"],
@@ -301,6 +323,41 @@ export default function Leaderboard() {
     );
   }
 
+  // Function to update chart highlighting based on hovered agent
+  const updateChartHighlight = (chart: any, agentName: string | null) => {
+    if (!chart || !chart.data || !chart.data.datasets) return;
+    
+    chart.data.datasets.forEach((dataset: any) => {
+      const colors = AGENT_COLOR_MAP[dataset.label] || DEFAULT_COLOR;
+      
+      if (agentName && dataset.label === agentName) {
+        // Highlight hovered line
+        dataset.borderColor = colors.border;
+        dataset.borderWidth = 4;
+        dataset.pointRadius = 8;
+      } else if (agentName) {
+        // Dim other lines when one is hovered
+        dataset.borderColor = colors.border.replace("1)", "0.3)");
+        dataset.borderWidth = 1;
+        dataset.pointRadius = 0;
+      } else {
+        // Reset all to default
+        dataset.borderColor = colors.border;
+        dataset.borderWidth = 2;
+        dataset.pointRadius = 0;
+      }
+    });
+    
+    chart.update('none');
+  };
+
+  // Update chart when hoveredAgent changes
+  useEffect(() => {
+    if (chartRef.current) {
+      updateChartHighlight(chartRef.current, hoveredAgent);
+    }
+  }, [hoveredAgent]);
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -318,37 +375,17 @@ export default function Leaderboard() {
       intersect: false,
     },
     onHover: (event: any, activeElements: any, chart: any) => {
+      // Store chart instance
+      chartRef.current = chart;
+      
       if (activeElements && activeElements.length > 0) {
         const activeDatasetIndex = activeElements[0].datasetIndex;
-        
-        chart.data.datasets.forEach((dataset: any, index: number) => {
-          const agentName = dataset.label;
-          const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
-          
-          if (index === activeDatasetIndex) {
-            // Highlight active line
-            dataset.borderColor = colors.border;
-            dataset.borderWidth = 3;
-            dataset.pointRadius = 6;
-          } else {
-            // Dim inactive lines slightly
-            dataset.borderColor = colors.border.replace("1)", "0.4)");
-            dataset.borderWidth = 1.5;
-            dataset.pointRadius = 0;
-          }
-        });
-        
-        chart.update('none');
-      } else {
-        // Reset all to default
-        chart.data.datasets.forEach((dataset: any) => {
-          const agentName = dataset.label;
-          const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
-          dataset.borderColor = colors.border;
-          dataset.borderWidth = 2;
-          dataset.pointRadius = 0;
-        });
-        chart.update('none');
+        const activeAgentName = chart.data.datasets[activeDatasetIndex]?.label;
+        setHoveredAgent(activeAgentName || null);
+        updateChartHighlight(chart, activeAgentName || null);
+      } else if (!hoveredAgent) {
+        // Only reset if no panel hover is active
+        updateChartHighlight(chart, null);
       }
     },
     plugins: {
@@ -534,7 +571,19 @@ export default function Leaderboard() {
                   <p className="text-sm">Los datos del gráfico aparecerán cuando los agentes comiencen a operar</p>
                 </div>
               ) : (
-                <Line data={chartData} options={chartOptions} />
+                <Line 
+                  data={chartData} 
+                  options={chartOptions}
+                  getDatasetAtEvent={(elements: any) => {
+                    // Access chart instance
+                    if (elements && elements.length > 0) {
+                      const chart = (elements[0].element as any).chart;
+                      if (chart) {
+                        chartRef.current = chart;
+                      }
+                    }
+                  }}
+                />
               )}
             </div>
             <div className="w-48 space-y-3">
@@ -542,21 +591,49 @@ export default function Leaderboard() {
                 const percentage = currentPercentages.get(agent.name) || 0;
                 const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
                 const isPositive = percentage >= 0;
+                const agentImage = AGENT_IMAGE_MAP[agent.name];
+                const isHovered = hoveredAgent === agent.name;
                 
                 return (
                   <div
                     key={agent.id}
-                    className="flex items-center gap-2 p-2 rounded border border-white/10 bg-black/20"
+                    className={`flex items-center gap-2 p-2 rounded border transition-all ${
+                      isHovered 
+                        ? "border-white/30 bg-black/40 scale-105" 
+                        : "border-white/10 bg-black/20"
+                    }`}
+                    onMouseEnter={() => {
+                      setHoveredAgent(agent.name);
+                      if (chartRef.current) {
+                        updateChartHighlight(chartRef.current, agent.name);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredAgent(null);
+                      if (chartRef.current) {
+                        updateChartHighlight(chartRef.current, null);
+                      }
+                    }}
                   >
-                    <div
-                      className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
-                      style={{
-                        backgroundColor: colors.border === "rgba(255, 255, 255, 1)" ? "#000" : colors.border,
-                        color: colors.border === "rgba(255, 255, 255, 1)" ? "#fff" : "#fff",
-                      }}
-                    >
-                      {colors.icon}
-                    </div>
+                    {agentImage ? (
+                      <div className="w-8 h-8 rounded overflow-hidden flex items-center justify-center bg-transparent">
+                        <img 
+                          src={agentImage} 
+                          alt={agent.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
+                        style={{
+                          backgroundColor: colors.border === "rgba(255, 255, 255, 1)" ? "#000" : colors.border,
+                          color: colors.border === "rgba(255, 255, 255, 1)" ? "#fff" : "#fff",
+                        }}
+                      >
+                        {colors.icon}
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="text-xs font-mono text-white/80">{agent.name}</div>
                       <div
