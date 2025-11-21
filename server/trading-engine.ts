@@ -913,12 +913,13 @@ export class TradingEngine {
       // If decision is HOLD, log the reasoning and skip execution
       if (decision.action === "HOLD") {
         console.log(`✋ ${agent.name} decided to HOLD`);
+        console.log(`   Reasoning: ${decision.reasoning}`);
         
-        // Log HOLD decision with reasoning to activity feed
+        // Log HOLD decision with full reasoning to activity feed (similar to OPEN/CLOSE format)
         await db.insert(activityEvents).values({
           agentId: agent.id,
           eventType: "DECISION_MADE",
-          message: `HOLD decision - ${decision.reasoning}`,
+          message: `HOLD using ${decision.strategy || "default"} strategy - ${decision.reasoning || "No specific reasoning provided"}`,
           asset: null,
           strategy: decision.strategy || null,
         });

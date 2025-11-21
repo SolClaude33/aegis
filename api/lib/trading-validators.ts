@@ -83,13 +83,14 @@ export class TradingValidator {
     }
 
     // Check if already has position in this asset
+    // Prevent opening duplicate positions
     const existingPosition = context.openPositions.find(
       (p) => p.asset === decision.asset
     );
     if (existingPosition) {
       return {
         isValid: false,
-        reason: `Already have open position in ${decision.asset}`,
+        reason: `Already have open position in ${decision.asset}. Cannot open duplicate position. Close existing position first.`,
       };
     }
 

@@ -99,13 +99,26 @@ export class TradingValidator {
 
     // Check if already has position in this asset with the SAME direction
     // Allow opening LONG if there's a SHORT (and vice versa) - they're opposite positions
+    // But prevent opening duplicate positions in the same direction
     const existingPosition = context.openPositions.find(
       (p) => p.asset === decision.asset && p.side === decision.direction
     );
     if (existingPosition) {
       return {
         isValid: false,
-        reason: `Already have open ${decision.direction} position in ${decision.asset}`,
+        reason: `Already have open ${decision.direction} position in ${decision.asset}. Cannot open duplicate position.`,
+      };
+    }
+    
+    // Also check if there's ANY position in this asset (as a safety check)
+    // This prevents edge cases where side might not match exactly
+    const anyPositionInAsset = context.openPositions.find(
+      (p) => p.asset === decision.asset
+    );
+    if (anyPositionInAsset && anyPositionInAsset.side === decision.direction) {
+      return {
+        isValid: false,
+        reason: `Already have an open position in ${decision.asset} with direction ${decision.direction}. Close existing position first.`,
       };
     }
 
