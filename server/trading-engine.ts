@@ -1145,6 +1145,10 @@ export class TradingEngine {
               // This is the actual available balance for trading
               let totalEquity = 0;
               
+              // Get USDT asset for logging (needed outside the if/else blocks)
+              const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                                accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
+              
               // Priority 1: Try to use totalMarginBalance or totalWalletBalance first
               // These should include margin used in positions, giving us the true total equity
               if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
@@ -1155,8 +1159,6 @@ export class TradingEngine {
                 // Fallback: Calculate from availableBalance + unrealizedPnL
                 // Priority 2: Get availableBalance from USDT asset (this is the correct field)
                 // This is the actual available balance shown in AsterDex UI
-                const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
-                                  accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
                 
                 if (usdtAsset && usdtAsset.availableBalance) {
                   // availableBalance is the actual usable balance shown in AsterDex UI
