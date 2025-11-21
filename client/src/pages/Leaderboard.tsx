@@ -113,32 +113,18 @@ export default function Leaderboard() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  if (agentsLoading || performanceLoading) {
-    return (
-      <div className="min-h-screen bg-background p-6 space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-96 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!agents || !performanceData) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-white/80">No data available</p>
-      </div>
-    );
-  }
-
   // Prepare chart data - filter by time range
-  const agentMap = new Map(agents.map((a) => [a.id, a]));
+  // Always execute hooks, even when loading or no data
+  const agentMap = useMemo(() => {
+    if (!agents) return new Map();
+    return new Map(agents.map((a) => [a.id, a]));
+  }, [agents]);
+  
   // Map for agent names (used in positions table)
-  const agentNameMap = new Map(agents.map(agent => [agent.id, agent.name]));
+  const agentNameMap = useMemo(() => {
+    if (!agents) return new Map();
+    return new Map(agents.map(agent => [agent.id, agent.name]));
+  }, [agents]);
   
   // Calculate time range filter
   const filteredPerformanceData = useMemo(() => {
@@ -217,63 +203,63 @@ export default function Leaderboard() {
   }, [agents, groupedData]);
 
   const datasets = useMemo(() => {
-    if (!agents || agents.length === 0 || allTimestamps.length === 0) return [];
+    if (!agents || agents.length === 0 || allTimestamps.length === 0 || !groupedData) return [];
     
     return agents.map((agent) => {
-    const agentSnapshots = groupedData[agent.id] || [];
-    // Sort snapshots by timestamp
-    agentSnapshots.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
-    let lastKnownValue = Number(agent.initialCapital); // Track last known account value
-    const data = allTimestamps.map((timestamp) => {
-      // Find exact snapshot for this timestamp, or find the most recent one before this timestamp
-      const exactSnapshot = agentSnapshots.find(
-        (s) => new Date(s.timestamp).getTime() === timestamp
+      const agentSnapshots = (groupedData[agent.id] || []).slice().sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       
-      if (exactSnapshot) {
-        lastKnownValue = Number(exactSnapshot.accountValue);
-        return lastKnownValue;
-      }
-      
-      // If no exact match, find the most recent snapshot before this timestamp
-      const previousSnapshots = agentSnapshots.filter(
-        (s) => new Date(s.timestamp).getTime() <= timestamp
-      );
-      
-      if (previousSnapshots.length > 0) {
-        // Use the most recent snapshot before this timestamp
-        const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
-        lastKnownValue = Number(lastSnapshot.accountValue);
-        return lastKnownValue;
-      }
-      
-      // If no previous snapshot exists, return initial capital
-      return Number(agent.initialCapital);
+      let lastKnownValue = Number(agent.initialCapital); // Track last known account value
+      const data = allTimestamps.map((timestamp) => {
+        // Find exact snapshot for this timestamp, or find the most recent one before this timestamp
+        const exactSnapshot = agentSnapshots.find(
+          (s) => new Date(s.timestamp).getTime() === timestamp
+        );
+        
+        if (exactSnapshot) {
+          lastKnownValue = Number(exactSnapshot.accountValue);
+          return lastKnownValue;
+        }
+        
+        // If no exact match, find the most recent snapshot before this timestamp
+        const previousSnapshots = agentSnapshots.filter(
+          (s) => new Date(s.timestamp).getTime() <= timestamp
+        );
+        
+        if (previousSnapshots.length > 0) {
+          // Use the most recent snapshot before this timestamp
+          const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
+          lastKnownValue = Number(lastSnapshot.accountValue);
+          return lastKnownValue;
+        }
+        
+        // If no previous snapshot exists, return initial capital
+        return Number(agent.initialCapital);
+      });
+
+      // Get specific color for this agent
+      const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
+
+      return {
+        label: agent.name,
+        data: data,
+        borderColor: colors.border,
+        backgroundColor: colors.fill,
+        borderWidth: 2, // Thinner lines like in the image
+        pointRadius: 0, // No visible points
+        pointHoverRadius: 6, // Larger on hover
+        pointHoverBorderWidth: 2,
+        pointBackgroundColor: colors.border,
+        pointBorderColor: colors.border,
+        pointBorderWidth: 0,
+        tension: 0.4, // Smooth curves
+        fill: false, // No filled area under line
+        hitRadius: 30, // Good hover area
+        spanGaps: true, // Connect lines across gaps
+        stepped: false,
+      };
     });
-
-    // Get specific color for this agent
-    const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
-
-    return {
-      label: agent.name,
-      data: data,
-      borderColor: colors.border,
-      backgroundColor: colors.fill,
-      borderWidth: 2, // Thinner lines like in the image
-      pointRadius: 0, // No visible points
-      pointHoverRadius: 6, // Larger on hover
-      pointHoverBorderWidth: 2,
-      pointBackgroundColor: colors.border,
-      pointBorderColor: colors.border,
-      pointBorderWidth: 0,
-      tension: 0.4, // Smooth curves
-      fill: false, // No filled area under line
-      hitRadius: 30, // Good hover area
-      spanGaps: true, // Connect lines across gaps
-      stepped: false,
-    };
-  });
   }, [agents, groupedData, allTimestamps]);
 
   const chartData = useMemo(() => {
@@ -292,6 +278,28 @@ export default function Leaderboard() {
       datasets: datasets,
     };
   }, [allTimestamps, datasets]);
+
+  if (agentsLoading || performanceLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6 space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-96 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!agents || !performanceData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-white/80">No data available</p>
+      </div>
+    );
+  }
 
   const chartOptions = {
     responsive: true,
@@ -520,7 +528,7 @@ export default function Leaderboard() {
           </div>
           <div className="flex gap-4">
             <div className="flex-1 h-[600px] w-full bg-[#0a1628] rounded flex items-center justify-center" data-testid="chart-performance">
-              {chartData.datasets.length === 0 || allTimestamps.length === 0 ? (
+              {!chartData || chartData.datasets.length === 0 || !allTimestamps || allTimestamps.length === 0 ? (
                 <div className="text-center text-white/60 font-mono">
                   <p className="text-lg mb-2">No hay datos disponibles</p>
                   <p className="text-sm">Los datos del gráfico aparecerán cuando los agentes comiencen a operar</p>
