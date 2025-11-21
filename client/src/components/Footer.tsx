@@ -6,15 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 export default function Footer() {
   const TWITTER_URL = "https://x.com/aegisarena";
   const GITHUB_URL = "https://github.com/AegisArena/aegis-main";
-  const CONTRACT_ADDRESS = "SOON"; // Replace with actual contract address when token launches
+  const CONTRACT_ADDRESS = "0x3358e447731eb82c318c8924d73776aaa79c4444";
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
   const handleCopyCA = async () => {
-    if (CONTRACT_ADDRESS === "SOON") {
-      return;
-    }
-
     try {
       await navigator.clipboard.writeText(CONTRACT_ADDRESS);
       setCopied(true);
@@ -74,21 +70,19 @@ export default function Footer() {
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
               <span>CA: {CONTRACT_ADDRESS}</span>
-              {CONTRACT_ADDRESS !== "SOON" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyCA}
-                  className="h-6 w-6 p-0 hover:bg-primary/20"
-                  title="Copy contract address"
-                >
-                  {copied ? (
-                    <Check className="w-3 h-3 text-primary" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyCA}
+                className="h-6 w-6 p-0 hover:bg-primary/20"
+                title="Copy contract address"
+              >
+                {copied ? (
+                  <Check className="w-3 h-3 text-primary" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+              </Button>
             </div>
           </div>
 
