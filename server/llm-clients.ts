@@ -105,17 +105,62 @@ export function buildEnhancedPrompt(context: LLMAnalysisContext): string {
       desc += ` | Volatility: ${m.volatility.toFixed(2)}%`;
     }
     
-    if (m.rsiApprox !== undefined) {
-      const rsiStatus = m.rsiApprox > 70 ? "OVERBOUGHT" : m.rsiApprox < 30 ? "OVERSOLD" : "NEUTRAL";
-      desc += ` | RSI: ${m.rsiApprox.toFixed(0)} (${rsiStatus})`;
-    }
-    
-    if (m.priceHistory && m.priceHistory.length > 0) {
-      const recentPrices = m.priceHistory.slice(-4).map(h => `$${h.price.toFixed(0)}`).join(" → ");
-      desc += ` | Recent: ${recentPrices}`;
-    }
-    
-    return desc;
+      // RSI - prefer Alpha Vantage if available, otherwise use approximate
+      if (m.rsi !== undefined) {
+        const rsiStatus = m.rsi > 70 ? "OVERBOUGHT" : m.rsi < 30 ? "OVERSOLD" : "NEUTRAL";
+        desc += ` | RSI: ${m.rsi.toFixed(0)} (${rsiStatus}) [Alpha Vantage]`;
+      } else if (m.rsiApprox !== undefined) {
+        const rsiStatus = m.rsiApprox > 70 ? "OVERBOUGHT" : m.rsiApprox < 30 ? "OVERSOLD" : "NEUTRAL";
+        desc += ` | RSI: ${m.rsiApprox.toFixed(0)} (${rsiStatus}) [approx]`;
+      }
+      
+      // MACD
+      if (m.macd) {
+        const macdSignal = m.macd.value > m.macd.signal ? "BULLISH" : "BEARISH";
+        desc += ` | MACD: ${macdSignal} (${m.macd.value > 0 ? '+' : ''}${m.macd.value.toFixed(4)}, signal: ${m.macd.signal.toFixed(4)})`;
+      }
+      
+      // Bollinger Bands
+      if (m.bollingerBands) {
+        const bbPosition = m.currentPrice > m.bollingerBands.upper ? "ABOVE UPPER" :
+                          m.currentPrice < m.bollingerBands.lower ? "BELOW LOWER" : "MIDDLE";
+        desc += ` | BBands: ${bbPosition} (upper: $${m.bollingerBands.upper.toFixed(2)}, lower: $${m.bollingerBands.lower.toFixed(2)})`;
+      }
+      
+      // ADX (trend strength)
+      if (m.adx !== undefined) {
+        const trendStrength = m.adx > 25 ? "STRONG TREND" : m.adx > 20 ? "MODERATE TREND" : "WEAK TREND";
+        desc += ` | ADX: ${m.adx.toFixed(1)} (${trendStrength})`;
+      }
+      
+      // Stochastic
+      if (m.stoch) {
+        const stochStatus = m.stoch.k > 80 ? "OVERBOUGHT" : m.stoch.k < 20 ? "OVERSOLD" : "NEUTRAL";
+        desc += ` | Stochastic: K=${m.stoch.k.toFixed(1)}, D=${m.stoch.d.toFixed(1)} (${stochStatus})`;
+      }
+      
+      // Market Sentiment (from Alpha Vantage News & Sentiments)
+      if (m.sentiment) {
+        const sentimentEmoji = m.sentiment.overallSentiment === "BULLISH" ? "📈" :
+                               m.sentiment.overallSentiment === "BEARISH" ? "📉" : "➡️";
+        desc += ` | Sentiment: ${sentimentEmoji} ${m.sentiment.overallSentiment}`;
+        if (m.sentiment.sentimentScore !== undefined) {
+          desc += ` (score: ${m.sentiment.sentimentScore > 0 ? '+' : ''}${m.sentiment.sentimentScore.toFixed(3)})`;
+        }
+        if (m.sentiment.bullishPercent !== undefined && m.sentiment.bearishPercent !== undefined) {
+          desc += ` | News: ${m.sentiment.bullishPercent.toFixed(0)}% bullish, ${m.sentiment.bearishPercent.toFixed(0)}% bearish`;
+        }
+        if (m.sentiment.recentNewsCount !== undefined) {
+          desc += ` (${m.sentiment.recentNewsCount} articles analyzed)`;
+        }
+      }
+      
+      if (m.priceHistory && m.priceHistory.length > 0) {
+        const recentPrices = m.priceHistory.slice(-4).map(h => `$${h.price.toFixed(0)}`).join(" → ");
+        desc += ` | Recent: ${recentPrices}`;
+      }
+      
+      return desc;
   }).join("\n");
 
   // Asset performance ranking
@@ -166,6 +211,13 @@ ${marketsDesc}
 
 ASSET PERFORMANCE RANKING (24h):
 ${performanceRanking}
+
+MARKET SENTIMENT ANALYSIS:
+The sentiment data (if available) is calculated from recent news articles and reflects market psychology:
+- BULLISH sentiment suggests positive market expectations
+- BEARISH sentiment suggests negative market expectations  
+- NEUTRAL sentiment suggests balanced or uncertain market expectations
+Use sentiment as an additional signal alongside technical indicators - strong sentiment can confirm or contradict technical patterns.
 
 AVAILABLE STRATEGIES (you can choose ANY strategy based on your own analysis):
 ${strategiesDesc}

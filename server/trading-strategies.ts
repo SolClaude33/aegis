@@ -23,6 +23,31 @@ export interface MarketData {
   distanceFromHigh?: number; // % distance from 24h high
   distanceFromLow?: number; // % distance from 24h low
   rsiApprox?: number; // Approximate RSI (0-100)
+  // Alpha Vantage technical indicators (if available)
+  rsi?: number; // Real RSI from Alpha Vantage (0-100)
+  macd?: {
+    value: number;
+    signal: number;
+    histogram: number;
+  };
+  bollingerBands?: {
+    upper: number;
+    middle: number;
+    lower: number;
+  };
+  adx?: number; // Average Directional Index (0-100, >25 = strong trend)
+  stoch?: {
+    k: number;
+    d: number;
+  }; // Stochastic oscillator
+  // Market sentiment data from Alpha Vantage
+  sentiment?: {
+    overallSentiment?: "BULLISH" | "BEARISH" | "NEUTRAL";
+    sentimentScore?: number; // -1 (very bearish) to +1 (very bullish)
+    bullishPercent?: number; // % of bullish articles
+    bearishPercent?: number; // % of bearish articles
+    recentNewsCount?: number; // Number of recent news articles analyzed
+  };
 }
 
 export interface StrategyContext {

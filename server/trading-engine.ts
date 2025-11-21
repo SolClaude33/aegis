@@ -20,8 +20,17 @@ export class TradingEngine {
   // Store last known PnL for each position to detect significant changes
   private lastPositionPnL: Map<string, { pnl: number; pnlPercentage: number; timestamp: number }> = new Map();
 
+  private alphaVantageApiKey: string | null = null;
+
   constructor() {
     // Clients are now created per-agent on demand
+    // Get Alpha Vantage API key from environment
+    this.alphaVantageApiKey = process.env.ALPHA_VANTAGE_API_KEY || null;
+    if (this.alphaVantageApiKey) {
+      console.log("✅ Alpha Vantage API key loaded - Enhanced technical indicators enabled");
+    } else {
+      console.log("⚠️  Alpha Vantage API key not found - Using basic indicators only");
+    }
   }
 
   async start() {
@@ -359,13 +368,23 @@ export class TradingEngine {
       try {
         const asterdexSymbol = symbolMap[crypto];
         const stats = await client.get24hrStats(asterdexSymbol);
+        
+        const currentPrice = parseFloat(stats.lastPrice);
+        const high24h = parseFloat(stats.highPrice);
+        const low24h = parseFloat(stats.lowPrice);
+        
+        // Fetch Alpha Vantage technical indicators (if API key is available)
+        const alphaIndicators = await this.fetchAlphaVantageIndicators(crypto);
+        
         marketData.push({
           symbol: crypto, // Use our normalized symbol (BTC, ETH, BNB)
-          currentPrice: parseFloat(stats.lastPrice),
+          currentPrice,
           change24h: parseFloat(stats.priceChangePercent),
           volume24h: parseFloat(stats.volume),
-          high24h: parseFloat(stats.highPrice),
-          low24h: parseFloat(stats.lowPrice),
+          high24h,
+          low24h,
+          // Alpha Vantage indicators (if available)
+          ...alphaIndicators,
         });
       } catch (error) {
         console.error(`Failed to fetch data for ${crypto}:`, error);
@@ -373,6 +392,230 @@ export class TradingEngine {
     }
 
     return marketData;
+  }
+
+  /**
+   * Fetch market sentiment from Alpha Vantage News & Sentiments API
+   */
+  private async fetchAlphaVantageSentiment(symbol: string): Promise<Partial<MarketData>> {
+    if (!this.alphaVantageApiKey) {
+      return {};
+    }
+
+    const sentimentData: Partial<MarketData> = {};
+
+    try {
+      // Alpha Vantage News & Sentiments endpoint
+      // Note: This may work better with stock tickers, but we'll try with crypto symbols
+      const sentimentUrl = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&apikey=${this.alphaVantageApiKey}&limit=50`;
+      
+      const sentimentResponse = await fetch(sentimentUrl, { signal: AbortSignal.timeout(5000) });
+      
+      if (sentimentResponse.ok) {
+        const sentimentApiData = await sentimentResponse.json();
+        
+        // Check if we have valid data
+        if (sentimentApiData.feed && Array.isArray(sentimentApiData.feed) && sentimentApiData.feed.length > 0) {
+          // Calculate aggregate sentiment from recent news
+          let totalSentiment = 0;
+          let bullishCount = 0;
+          let bearishCount = 0;
+          let neutralCount = 0;
+          
+          // Analyze last 20 articles (or fewer if less available)
+          const recentArticles = sentimentApiData.feed.slice(0, 20);
+          
+          for (const article of recentArticles) {
+            // Check if article mentions our symbol
+            const relevantTickers = article.ticker_sentiment || [];
+            const symbolTicker = relevantTickers.find((t: any) => 
+              t.ticker === symbol || t.ticker === `${symbol}USD` || t.ticker === `${symbol}USDT`
+            );
+            
+            if (symbolTicker) {
+              const relevanceScore = parseFloat(symbolTicker.relevance_score || "0");
+              const sentimentScore = parseFloat(symbolTicker.ticker_sentiment_score || "0");
+              
+              // Only count if relevance is > 0.3 (30% relevant)
+              if (relevanceScore > 0.3) {
+                totalSentiment += sentimentScore * relevanceScore; // Weight by relevance
+                
+                if (sentimentScore > 0.15) bullishCount++;
+                else if (sentimentScore < -0.15) bearishCount++;
+                else neutralCount++;
+              }
+            }
+          }
+          
+          const totalArticles = bullishCount + bearishCount + neutralCount;
+          
+          if (totalArticles > 0) {
+            const avgSentiment = totalSentiment / totalArticles;
+            const bullishPercent = (bullishCount / totalArticles) * 100;
+            const bearishPercent = (bearishCount / totalArticles) * 100;
+            
+            let overallSentiment: "BULLISH" | "BEARISH" | "NEUTRAL" = "NEUTRAL";
+            if (avgSentiment > 0.15) overallSentiment = "BULLISH";
+            else if (avgSentiment < -0.15) overallSentiment = "BEARISH";
+            
+            sentimentData.sentiment = {
+              overallSentiment,
+              sentimentScore: avgSentiment,
+              bullishPercent,
+              bearishPercent,
+              recentNewsCount: totalArticles,
+            };
+            
+            console.log(`📰 [${symbol}] Sentiment: ${overallSentiment} (score: ${avgSentiment.toFixed(3)}, ${totalArticles} articles)`);
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail - sentiment data is optional
+      console.log(`Alpha Vantage sentiment fetch failed for ${symbol} (may not be supported for crypto)`);
+    }
+
+    return sentimentData;
+  }
+
+  /**
+   * Fetch technical indicators from Alpha Vantage API
+   */
+  private async fetchAlphaVantageIndicators(symbol: string): Promise<Partial<MarketData>> {
+    if (!this.alphaVantageApiKey) {
+      return {};
+    }
+
+    const indicators: Partial<MarketData> = {};
+
+    try {
+      // Map crypto symbols to Alpha Vantage format
+      // Note: Alpha Vantage technical indicators work with stock symbols primarily
+      // For crypto, we'll try using the symbol directly, but it may not work for all coins
+      // Alpha Vantage supports BTC and ETH for some technical indicators
+      const alphaSymbol = symbol; // Use symbol as-is (BTC, ETH, BNB)
+      
+      // Rate limiting: Alpha Vantage free tier allows 5 API calls per minute
+      // We'll fetch indicators with a small delay between calls to avoid hitting limits
+      await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay between calls
+      
+      // Fetch RSI (Relative Strength Index)
+      try {
+        const rsiUrl = `https://www.alphavantage.co/query?function=RSI&symbol=${alphaSymbol}&interval=60min&series_type=close&time_period=14&apikey=${this.alphaVantageApiKey}`;
+        const rsiResponse = await fetch(rsiUrl, { signal: AbortSignal.timeout(5000) });
+        if (rsiResponse.ok) {
+          const rsiData = await rsiResponse.json();
+          const rsiMeta = rsiData["Meta Data"];
+          const rsiSeries = rsiData["Technical Analysis: RSI"];
+          
+          if (rsiSeries) {
+            const latestTime = Object.keys(rsiSeries).sort().reverse()[0];
+            const rsiValue = parseFloat(rsiSeries[latestTime]?.RSI);
+            if (!isNaN(rsiValue)) {
+              indicators.rsi = rsiValue;
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Alpha Vantage RSI fetch failed for ${symbol}:`, error);
+      }
+
+      // Fetch MACD (Moving Average Convergence Divergence)
+      try {
+        const macdUrl = `https://www.alphavantage.co/query?function=MACD&symbol=${alphaSymbol}&interval=60min&series_type=close&apikey=${this.alphaVantageApiKey}`;
+        const macdResponse = await fetch(macdUrl, { signal: AbortSignal.timeout(5000) });
+        if (macdResponse.ok) {
+          const macdData = await macdResponse.json();
+          const macdSeries = macdData["Technical Analysis: MACD"];
+          
+          if (macdSeries) {
+            const latestTime = Object.keys(macdSeries).sort().reverse()[0];
+            const macdEntry = macdSeries[latestTime];
+            if (macdEntry) {
+              indicators.macd = {
+                value: parseFloat(macdEntry.MACD) || 0,
+                signal: parseFloat(macdEntry.MACD_Signal) || 0,
+                histogram: parseFloat(macdEntry.MACD_Hist) || 0,
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Alpha Vantage MACD fetch failed for ${symbol}:`, error);
+      }
+
+      // Fetch Bollinger Bands
+      try {
+        const bbUrl = `https://www.alphavantage.co/query?function=BBANDS&symbol=${alphaSymbol}&interval=60min&series_type=close&time_period=20&apikey=${this.alphaVantageApiKey}`;
+        const bbResponse = await fetch(bbUrl, { signal: AbortSignal.timeout(5000) });
+        if (bbResponse.ok) {
+          const bbData = await bbResponse.json();
+          const bbSeries = bbData["Technical Analysis: BBANDS"];
+          
+          if (bbSeries) {
+            const latestTime = Object.keys(bbSeries).sort().reverse()[0];
+            const bbEntry = bbSeries[latestTime];
+            if (bbEntry) {
+              indicators.bollingerBands = {
+                upper: parseFloat(bbEntry.Real Upper Band) || 0,
+                middle: parseFloat(bbEntry.Real Middle Band) || 0,
+                lower: parseFloat(bbEntry.Real Lower Band) || 0,
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Alpha Vantage Bollinger Bands fetch failed for ${symbol}:`, error);
+      }
+
+      // Fetch ADX (Average Directional Index)
+      try {
+        const adxUrl = `https://www.alphavantage.co/query?function=ADX&symbol=${alphaSymbol}&interval=60min&time_period=14&apikey=${this.alphaVantageApiKey}`;
+        const adxResponse = await fetch(adxUrl, { signal: AbortSignal.timeout(5000) });
+        if (adxResponse.ok) {
+          const adxData = await adxResponse.json();
+          const adxSeries = adxData["Technical Analysis: ADX"];
+          
+          if (adxSeries) {
+            const latestTime = Object.keys(adxSeries).sort().reverse()[0];
+            const adxValue = parseFloat(adxSeries[latestTime]?.ADX);
+            if (!isNaN(adxValue)) {
+              indicators.adx = adxValue;
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Alpha Vantage ADX fetch failed for ${symbol}:`, error);
+      }
+
+      // Fetch Stochastic Oscillator
+      try {
+        const stochUrl = `https://www.alphavantage.co/query?function=STOCH&symbol=${alphaSymbol}&interval=60min&apikey=${this.alphaVantageApiKey}`;
+        const stochResponse = await fetch(stochUrl, { signal: AbortSignal.timeout(5000) });
+        if (stochResponse.ok) {
+          const stochData = await stochResponse.json();
+          const stochSeries = stochData["Technical Analysis: STOCH"];
+          
+          if (stochSeries) {
+            const latestTime = Object.keys(stochSeries).sort().reverse()[0];
+            const stochEntry = stochSeries[latestTime];
+            if (stochEntry) {
+              indicators.stoch = {
+                k: parseFloat(stochEntry.SlowK) || 0,
+                d: parseFloat(stochEntry.SlowD) || 0,
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Alpha Vantage Stochastic fetch failed for ${symbol}:`, error);
+      }
+
+    } catch (error) {
+      console.error(`Error fetching Alpha Vantage indicators for ${symbol}:`, error);
+    }
+
+    return indicators;
   }
 
   private async fetchMarketDataFromCryptoCompare(): Promise<(MarketData & { symbol: SupportedCrypto })[]> {
@@ -402,6 +645,9 @@ export class TradingEngine {
           // Calculate distance from high/low
           const distanceFromHigh = high24h > 0 ? ((currentPrice - high24h) / high24h) * 100 : 0;
           const distanceFromLow = low24h > 0 ? ((currentPrice - low24h) / low24h) * 100 : 0;
+          
+          // Fetch Alpha Vantage technical indicators (if API key is available)
+          const alphaIndicators = await this.fetchAlphaVantageIndicators(symbol);
           
           // Fetch historical data for last 4 hours
           let priceHistory: { timestamp: number; price: number }[] = [];
@@ -478,6 +724,7 @@ export class TradingEngine {
             console.log(`Could not fetch historical data for ${symbol}, continuing without it`);
           }
           
+          // Merge Alpha Vantage indicators and sentiment with market data
           marketData.push({
             symbol: symbol as SupportedCrypto,
             currentPrice,
@@ -491,6 +738,8 @@ export class TradingEngine {
             distanceFromHigh,
             distanceFromLow,
             rsiApprox,
+            // Alpha Vantage indicators and sentiment (if available)
+            ...alphaData,
           });
         }
       }

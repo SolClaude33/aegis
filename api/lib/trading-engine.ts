@@ -20,8 +20,17 @@ export class TradingEngine {
   // Store last known PnL for each position to detect significant changes
   private lastPositionPnL: Map<string, { pnl: number; pnlPercentage: number; timestamp: number }> = new Map();
 
+  private alphaVantageApiKey: string | null = null;
+
   constructor() {
     // Clients are now created per-agent on demand
+    // Get Alpha Vantage API key from environment
+    this.alphaVantageApiKey = process.env.ALPHA_VANTAGE_API_KEY || null;
+    if (this.alphaVantageApiKey) {
+      console.log("✅ Alpha Vantage API key loaded - Enhanced technical indicators enabled");
+    } else {
+      console.log("⚠️  Alpha Vantage API key not found - Using basic indicators only");
+    }
   }
 
   async start() {
@@ -338,6 +347,14 @@ export class TradingEngine {
       try {
         const asterdexSymbol = symbolMap[crypto];
         const stats = await client.get24hrStats(asterdexSymbol);
+        
+        // Fetch Alpha Vantage technical indicators and sentiment (if API key is available)
+        const alphaIndicators = await this.fetchAlphaVantageIndicators(crypto);
+        const alphaSentiment = await this.fetchAlphaVantageSentiment(crypto);
+        
+        // Merge sentiment with indicators
+        const alphaData = { ...alphaIndicators, ...alphaSentiment };
+        
         marketData.push({
           symbol: crypto, // Use our normalized symbol (BTC, ETH, BNB)
           currentPrice: parseFloat(stats.lastPrice),
@@ -345,6 +362,8 @@ export class TradingEngine {
           volume24h: parseFloat(stats.volume),
           high24h: parseFloat(stats.highPrice),
           low24h: parseFloat(stats.lowPrice),
+          // Alpha Vantage indicators and sentiment (if available)
+          ...alphaData,
         });
       } catch (error) {
         console.error(`Failed to fetch data for ${crypto}:`, error);
@@ -374,6 +393,13 @@ export class TradingEngine {
       for (const symbol of symbols) {
         const raw = data.RAW?.[symbol]?.USD;
         if (raw) {
+          // Fetch Alpha Vantage technical indicators and sentiment (if API key is available)
+          const alphaIndicators = await this.fetchAlphaVantageIndicators(symbol);
+          const alphaSentiment = await this.fetchAlphaVantageSentiment(symbol);
+          
+          // Merge sentiment with indicators
+          const alphaData = { ...alphaIndicators, ...alphaSentiment };
+          
           marketData.push({
             symbol: symbol as SupportedCrypto,
             currentPrice: raw.PRICE || 0,
@@ -381,6 +407,8 @@ export class TradingEngine {
             volume24h: raw.TOTALVOLUME24H || 0,
             high24h: raw.HIGH24HOUR || raw.PRICE || 0,
             low24h: raw.LOW24HOUR || raw.PRICE || 0,
+            // Alpha Vantage indicators and sentiment (if available)
+            ...alphaData,
           });
         }
       }

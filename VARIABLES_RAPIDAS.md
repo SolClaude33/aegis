@@ -51,7 +51,15 @@ AGENT_DEEPSEEK_API_SECRET=tu_secret
 **Sin estas → funciona en modo SIMULACIÓN**
 
 ### Para Datos de Mercado (Opcional):
-Ya usa CryptoCompare API (gratuita, sin API key)
+```bash
+ALPHA_VANTAGE_API_KEY=tu_api_key
+```
+**Obtener API key:** https://www.alphavantage.co/support/#api-key (gratuita)
+
+Sin esta variable → Usa CryptoCompare API (básica, sin API key)
+Con esta variable → Usa Alpha Vantage para:
+- Indicadores técnicos avanzados (RSI, MACD, Bollinger Bands, ADX, Stochastic)
+- Análisis de sentimiento de mercado basado en noticias (News & Sentiments)
 
 ### Sistema:
 ```
