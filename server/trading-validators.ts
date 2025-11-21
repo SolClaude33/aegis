@@ -57,13 +57,13 @@ export class TradingValidator {
       };
     }
 
-    // Validate OPEN decisions (replaces BUY)
-    if (decision.action === "OPEN") {
+    // Validate OPEN decisions (accept both OPEN and OPEN_POSITION)
+    if (decision.action === "OPEN" || decision.action === "OPEN_POSITION") {
       return this.validateOpen(decision, context);
     }
 
-    // Validate CLOSE decisions (replaces SELL)
-    if (decision.action === "CLOSE") {
+    // Validate CLOSE decisions (accept both CLOSE and CLOSE_POSITION)
+    if (decision.action === "CLOSE" || decision.action === "CLOSE_POSITION") {
       return this.validateClose(decision, context);
     }
 
