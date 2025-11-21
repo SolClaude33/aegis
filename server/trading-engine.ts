@@ -222,11 +222,12 @@ export class TradingEngine {
       if (!apiKey || !apiSecret) {
         console.log(`⚠️  Missing API credentials for ${agent.name} - skipping real trading`);
         console.log(`   Looking for: ${agent.apiKeyRef} and ${agent.apiSecretRef}`);
+        console.log(`   Available env vars: ${Object.keys(process.env).filter(k => k.includes('ASTERDEX') || k.includes(agent.apiKeyRef) || k.includes(agent.apiSecretRef)).join(', ') || 'None found'}`);
         return null;
       }
 
-      // Only log credentials on first creation (not every time)
-      // Removed verbose logging to reduce log noise
+      // Log that credentials were found (but not the actual values)
+      console.log(`✅ Found API credentials for ${agent.name} (${agent.apiKeyRef}, ${agent.apiSecretRef})`);
 
       const client = new AsterDexClient({
         apiKey,
@@ -1222,8 +1223,16 @@ export class TradingEngine {
               console.log(
                 `💰 ${agent.name}: $${totalEquity.toFixed(2)} (Avbl: $${availableLog.toFixed(2)}, ${openPositionsCount} pos)`
               );
-            } catch (error) {
-              console.log(`⚠️  Could not fetch balance for ${agent.name} from AsterDex`);
+            } catch (error: any) {
+              const errorMessage = error?.message || error?.toString() || "Unknown error";
+              const errorCode = error?.code || error?.status || "N/A";
+              console.error(`⚠️  Could not fetch balance for ${agent.name} from AsterDex: ${errorMessage} (code: ${errorCode})`);
+              
+              // Log more details if available
+              if (error?.response) {
+                console.error(`   Response status: ${error.response.status}`);
+                console.error(`   Response data:`, error.response.data);
+              }
             }
           }
 
@@ -1394,9 +1403,11 @@ export class TradingEngine {
           if (totalEquity > 0) {
             currentBalance = totalEquity;
           }
-        } catch (error) {
+        } catch (error: any) {
           // If API fails, use currentCapital from database (already set above)
-          console.log(`⚠️  Could not fetch balance from AsterDex for snapshot, using database value for agent ${agentId}`);
+          const errorMessage = error?.message || error?.toString() || "Unknown error";
+          console.error(`⚠️  Could not fetch balance from AsterDex for snapshot (agent ${agentId}): ${errorMessage}`);
+          console.error(`   Using database value: ${currentBalance.toFixed(2)}`);
         }
       }
       

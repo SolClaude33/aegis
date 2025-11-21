@@ -94,17 +94,48 @@ export class AsterDexClient {
         headers,
       });
 
-      const data = await response.json();
-
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(
-          `AsterDex API Error: ${data.msg || data.message || "Unknown error"}`
-        );
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch {
+          // If JSON parsing fails, use text
+          const text = await response.text();
+          errorData = { message: text || `HTTP ${response.status}` };
+        }
+        
+        const error = new Error(
+          `AsterDex API Error: ${errorData.msg || errorData.message || `HTTP ${response.status}`}`
+        ) as any;
+        error.status = response.status;
+        error.response = { status: response.status, data: errorData };
+        throw error;
       }
 
+      const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error("AsterDex API Request Failed:", error);
+      // Enhanced error logging
+      const errorDetails = {
+        message: error?.message || "Unknown error",
+        code: error?.code || "N/A",
+        status: error?.status || "N/A",
+        url: url.split('?')[0], // Don't log full URL with signature
+        endpoint: endpoint,
+      };
+      
+      // If it's a response error, include response details
+      if (error?.response) {
+        errorDetails.status = error.response.status || errorDetails.status;
+        console.error("AsterDex API Request Failed:", {
+          ...errorDetails,
+          responseData: error.response.data,
+        });
+      } else {
+        console.error("AsterDex API Request Failed:", errorDetails, error);
+      }
+      
       throw error;
     }
   }
