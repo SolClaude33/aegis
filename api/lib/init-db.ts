@@ -119,6 +119,8 @@ export async function initializeDatabase() {
           strategy TEXT,
           llm_reasoning TEXT,
           llm_confidence DECIMAL(3, 2),
+          action TEXT,
+          direction TEXT,
           tx_hash TEXT,
           created_at TIMESTAMP DEFAULT NOW() NOT NULL,
           updated_at TIMESTAMP DEFAULT NOW() NOT NULL

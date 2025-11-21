@@ -7,6 +7,7 @@ import { migrateTradingPairs } from "./migrate-trading-pairs";
 import { migrateInitialCapital } from "./migrate-initial-capital";
 import { migrateRemoveLlama } from "./migrate-remove-llama";
 import { migrateResetPerformance } from "./migrate-reset-performance";
+import { migrateAddActionDirection } from "./migrate-add-action-direction";
 
 const app = express();
 app.use(express.json());
@@ -76,6 +77,13 @@ app.use((req, res, next) => {
     await migrateResetPerformance();
   } catch (error) {
     console.error('⚠️  Performance reset migration failed:', error);
+  }
+  
+  // Add action and direction columns to asterdex_orders
+  try {
+    await migrateAddActionDirection();
+  } catch (error) {
+    console.error('⚠️  Action/direction migration failed:', error);
   }
   
   await seedDatabase();
