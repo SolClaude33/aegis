@@ -73,11 +73,12 @@ app.use((req, res, next) => {
   }
   
   // Reset performance snapshots to start chart fresh
-  try {
-    await migrateResetPerformance();
-  } catch (error) {
-    console.error('⚠️  Performance reset migration failed:', error);
-  }
+  // DISABLED: Commented out to preserve historical chart data across deployments
+  // try {
+  //   await migrateResetPerformance();
+  // } catch (error) {
+  //   console.error('⚠️  Performance reset migration failed:', error);
+  // }
   
   // Add action and direction columns to asterdex_orders
   try {
