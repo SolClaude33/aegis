@@ -57,29 +57,43 @@ export class TradingValidator {
       };
     }
 
-    // Validate BUY decisions
-    if (decision.action === "BUY") {
-      return this.validateBuy(decision, context);
+    // Validate OPEN decisions (replaces BUY)
+    if (decision.action === "OPEN") {
+      return this.validateOpen(decision, context);
     }
 
-    // Validate SELL decisions
+    // Validate CLOSE decisions (replaces SELL)
+    if (decision.action === "CLOSE") {
+      return this.validateClose(decision, context);
+    }
+
+    // Legacy support for BUY/SELL (for backwards compatibility)
+    if (decision.action === "BUY") {
+      return this.validateOpen(decision, context);
+    }
+
     if (decision.action === "SELL") {
-      return this.validateSell(decision, context);
+      return this.validateClose(decision, context);
     }
 
     return { isValid: false, reason: "Unknown action type" };
   }
 
   /**
-   * Validates BUY decisions
+   * Validates OPEN decisions (replaces BUY)
    */
-  private validateBuy(
+  private validateOpen(
     decision: LLMTradingDecision,
     context: ValidationContext
   ): ValidationResult {
     // Asset must be specified
     if (!decision.asset) {
-      return { isValid: false, reason: "BUY decision missing asset symbol" };
+      return { isValid: false, reason: "OPEN decision missing asset symbol" };
+    }
+
+    // Direction must be specified for OPEN
+    if (!decision.direction || (decision.direction !== "LONG" && decision.direction !== "SHORT")) {
+      return { isValid: false, reason: "OPEN decision must specify direction: LONG or SHORT" };
     }
 
     // Check if already has position in this asset
@@ -105,14 +119,16 @@ export class TradingValidator {
 
     // Strategy must be specified
     if (!decision.strategy) {
-      return { isValid: false, reason: "BUY decision missing strategy" };
+      return { isValid: false, reason: "OPEN decision missing strategy" };
     }
 
     // Validate strategy logic (strategy-specific rules)
+    // For OPEN, we validate based on direction: LONG is like BUY, SHORT is like SELL
+    const actionForValidation = decision.direction === "LONG" ? "BUY" : "SELL";
     const strategyValidation = this.validateStrategyLogic(
       decision.strategy,
       decision.asset,
-      "BUY",
+      actionForValidation,
       context.marketData
     );
 
@@ -167,18 +183,18 @@ export class TradingValidator {
   }
 
   /**
-   * Validates SELL decisions
+   * Validates CLOSE decisions (replaces SELL)
    */
-  private validateSell(
+  private validateClose(
     decision: LLMTradingDecision,
     context: ValidationContext
   ): ValidationResult {
     // Asset must be specified
     if (!decision.asset) {
-      return { isValid: false, reason: "SELL decision missing asset symbol" };
+      return { isValid: false, reason: "CLOSE decision missing asset symbol" };
     }
 
-    // Must have existing position to sell
+    // Must have existing position to close
     const existingPosition = context.openPositions.find(
       (p) => p.asset === decision.asset
     );
@@ -186,7 +202,7 @@ export class TradingValidator {
     if (!existingPosition) {
       return {
         isValid: false,
-        reason: `No open position in ${decision.asset} to sell`,
+        reason: `No open position in ${decision.asset} to close`,
       };
     }
 
