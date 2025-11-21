@@ -572,30 +572,87 @@ export class TradingEngine {
           // For LONG positions (positionAmt > 0), look for BUY orders
           // For SHORT positions (positionAmt < 0), look for SELL orders
           const expectedSide = positionAmt > 0 ? "BUY" : "SELL";
-          const recentOrder = await db
+          
+          // Find the most recent order for this asset by normalizing symbols
+          // Get all recent orders for this agent and filter by normalized asset
+          const allRecentOrders = await db
             .select()
             .from(asterdexOrders)
             .where(eq(asterdexOrders.agentId, agentId))
-            .where(eq(asterdexOrders.symbol, pos.symbol || `${normalizedSymbol}USDT`))
             .where(eq(asterdexOrders.side, expectedSide))
             .orderBy(desc(asterdexOrders.createdAt))
-            .limit(1);
+            .limit(20); // Get last 20 orders to find the right one
+          
+          // Normalize symbols from orders and find the one matching our asset
+          let recentOrder: any[] = [];
+          for (const order of allRecentOrders) {
+            // Normalize order symbol: BTCUSDT → BTC, ETHUSDT → ETH, BNBUSDT → BNB
+            const orderSymbolNormalized = (order.symbol || "")
+              .toUpperCase()
+              .replace("USDT", "")
+              .replace("/", "")
+              .replace("-", "")
+              .trim();
+            
+            if (orderSymbolNormalized === normalizedSymbol) {
+              recentOrder = [order];
+              console.log(`✅ [${agent[0].name}] Found matching order for ${normalizedSymbol}:`, {
+                orderId: order.id,
+                orderSymbol: order.symbol,
+                orderSymbolNormalized,
+                side: order.side,
+                direction: order.direction,
+                asset: order.symbol?.replace("USDT", "").replace("/", "").replace("-", ""),
+              });
+              break;
+            }
+          }
+          
+          if (recentOrder.length === 0) {
+            console.log(`⚠️  [${agent[0].name}] No matching order found for ${normalizedSymbol} ${expectedSide}. Recent orders:`, 
+              allRecentOrders.slice(0, 5).map(o => ({
+                symbol: o.symbol,
+                normalized: (o.symbol || "").toUpperCase().replace("USDT", "").replace("/", "").replace("-", ""),
+                side: o.side,
+                direction: o.direction,
+              }))
+            );
+          }
 
           const txHash = recentOrder[0]?.txHash || "";
 
+          // IMPORTANT: Use the asset from the order, not from AsterDex position symbol
+          // This ensures we use the correct asset that was actually traded
+          // Normalize the order symbol to get the asset
+          const orderAsset = recentOrder[0]?.symbol 
+            ? ((recentOrder[0].symbol || "")
+                .toUpperCase()
+                .replace("USDT", "")
+                .replace("/", "")
+                .replace("-", "")
+                .trim() as SupportedCrypto)
+            : normalizedSymbol; // Fallback to normalizedSymbol if no order found
+          
+          // Validate that orderAsset is a supported crypto
+          const finalAsset = SUPPORTED_CRYPTOS.includes(orderAsset) ? orderAsset : normalizedSymbol;
+
           const positionSide = positionAmt > 0 ? "LONG" : "SHORT";
           console.log(`➕ [${agent[0].name}] Creating new position in DB:`, {
-            asset: normalizedSymbol,
+            asterdexSymbol: pos.symbol,
+            normalizedSymbolFromAsterDex: normalizedSymbol,
+            orderAsset,
+            finalAsset,
             side: positionSide,
             size: Math.abs(positionAmt).toFixed(8),
             entryPrice: entryPrice.toFixed(2),
             foundOrder: !!recentOrder[0],
             orderSide: expectedSide,
+            orderSymbol: recentOrder[0]?.symbol,
           });
           
           await db.insert(positions).values({
             agentId: agentId,
-            asset: normalizedSymbol,
+            asset: finalAsset,
             side: positionSide,
             size: Math.abs(positionAmt).toFixed(8),
             entryPrice: entryPrice.toFixed(2),
@@ -609,7 +666,7 @@ export class TradingEngine {
             openTxHash: txHash,
           });
           
-          console.log(`✅ [${agent[0].name}] Position created in DB: ${normalizedSymbol} ${positionSide}`);
+          console.log(`✅ [${agent[0].name}] Position created in DB: ${finalAsset} ${positionSide} (from order: ${recentOrder[0]?.symbol || 'N/A'})`);
         }
       }
 
