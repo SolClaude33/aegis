@@ -270,7 +270,7 @@ export default function Leaderboard() {
         backgroundColor: colors.fill,
         borderWidth: 2, // Thinner lines like in the image
         pointRadius: 0, // No visible points
-        pointHoverRadius: 6, // Larger on hover
+        pointHoverRadius: 0, // No points on hover
         pointHoverBorderWidth: 2,
         pointBackgroundColor: colors.border,
         pointBorderColor: colors.border,
@@ -312,7 +312,7 @@ export default function Leaderboard() {
         // Highlight hovered line
         dataset.borderColor = colors.border;
         dataset.borderWidth = 4;
-        dataset.pointRadius = 8;
+        dataset.pointRadius = 0; // No points
       } else if (agentName) {
         // Dim other lines when one is hovered
         dataset.borderColor = colors.border.replace("1)", "0.3)");

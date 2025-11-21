@@ -24,7 +24,7 @@ interface PriceTrackerProps {
 export default function PriceTracker({ layout = "vertical" }: PriceTrackerProps) {
   const { data: prices, isLoading } = useQuery<CryptoPrice[]>({
     queryKey: ["/api/crypto/prices"],
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 5000, // Refetch every 5 seconds for faster updates
   });
 
   const priceMap = new Map(prices?.map((p) => [p.symbol, p]) || []);
