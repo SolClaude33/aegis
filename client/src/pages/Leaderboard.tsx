@@ -142,7 +142,7 @@ export default function Leaderboard() {
   
   // Calculate time range filter
   const filteredPerformanceData = useMemo(() => {
-    if (!performanceData) return [];
+    if (!performanceData || performanceData.length === 0) return [];
     
     const now = Date.now();
     let cutoffTime = now;
@@ -166,21 +166,25 @@ export default function Leaderboard() {
   }, [performanceData, timeRange]);
   
   // Group filtered snapshots by agent
-  const groupedData = filteredPerformanceData.reduce((acc, snapshot) => {
-    if (!acc[snapshot.agentId]) {
-      acc[snapshot.agentId] = [];
-    }
-    acc[snapshot.agentId].push(snapshot);
-    return acc;
-  }, {} as Record<string, PerformanceSnapshot[]>);
+  const groupedData = useMemo(() => {
+    return filteredPerformanceData.reduce((acc, snapshot) => {
+      if (!acc[snapshot.agentId]) {
+        acc[snapshot.agentId] = [];
+      }
+      acc[snapshot.agentId].push(snapshot);
+      return acc;
+    }, {} as Record<string, PerformanceSnapshot[]>);
+  }, [filteredPerformanceData]);
 
-  const allTimestamps = Array.from(
-    new Set(filteredPerformanceData.map((s) => new Date(s.timestamp).getTime()))
-  ).sort((a, b) => a - b);
+  const allTimestamps = useMemo(() => {
+    return Array.from(
+      new Set(filteredPerformanceData.map((s) => new Date(s.timestamp).getTime()))
+    ).sort((a, b) => a - b);
+  }, [filteredPerformanceData]);
 
   // Calculate current percentage changes for right panel
   const currentPercentages = useMemo(() => {
-    if (!agents || !performanceData) return new Map<string, number>();
+    if (!agents || agents.length === 0 || !groupedData) return new Map<string, number>();
     
     const percentages = new Map<string, number>();
     agents.forEach((agent) => {
@@ -210,9 +214,12 @@ export default function Leaderboard() {
     });
     
     return percentages;
-  }, [agents, groupedData, performanceData]);
+  }, [agents, groupedData]);
 
-  const datasets = agents.map((agent) => {
+  const datasets = useMemo(() => {
+    if (!agents || agents.length === 0 || allTimestamps.length === 0) return [];
+    
+    return agents.map((agent) => {
     const agentSnapshots = groupedData[agent.id] || [];
     // Sort snapshots by timestamp
     agentSnapshots.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -267,14 +274,24 @@ export default function Leaderboard() {
       stepped: false,
     };
   });
+  }, [agents, groupedData, allTimestamps]);
 
-  const chartData = {
-    labels: allTimestamps.map((ts) => {
-      const date = new Date(ts);
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true });
-    }),
-    datasets: datasets,
-  };
+  const chartData = useMemo(() => {
+    if (allTimestamps.length === 0 || datasets.length === 0) {
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+    
+    return {
+      labels: allTimestamps.map((ts) => {
+        const date = new Date(ts);
+        return date.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true });
+      }),
+      datasets: datasets,
+    };
+  }, [allTimestamps, datasets]);
 
   const chartOptions = {
     responsive: true,
@@ -502,8 +519,15 @@ export default function Leaderboard() {
             </div>
           </div>
           <div className="flex gap-4">
-            <div className="flex-1 h-[600px] w-full bg-[#0a1628] rounded" data-testid="chart-performance">
-              <Line data={chartData} options={chartOptions} />
+            <div className="flex-1 h-[600px] w-full bg-[#0a1628] rounded flex items-center justify-center" data-testid="chart-performance">
+              {chartData.datasets.length === 0 || allTimestamps.length === 0 ? (
+                <div className="text-center text-white/60 font-mono">
+                  <p className="text-lg mb-2">No hay datos disponibles</p>
+                  <p className="text-sm">Los datos del gráfico aparecerán cuando los agentes comiencen a operar</p>
+                </div>
+              ) : (
+                <Line data={chartData} options={chartOptions} />
+              )}
             </div>
             <div className="w-48 space-y-3">
               {agents.map((agent) => {
