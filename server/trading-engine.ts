@@ -395,13 +395,102 @@ export class TradingEngine {
       for (const symbol of symbols) {
         const raw = data.RAW?.[symbol]?.USD;
         if (raw) {
+          const currentPrice = raw.PRICE || 0;
+          const high24h = raw.HIGH24HOUR || currentPrice;
+          const low24h = raw.LOW24HOUR || currentPrice;
+          
+          // Calculate distance from high/low
+          const distanceFromHigh = high24h > 0 ? ((currentPrice - high24h) / high24h) * 100 : 0;
+          const distanceFromLow = low24h > 0 ? ((currentPrice - low24h) / low24h) * 100 : 0;
+          
+          // Fetch historical data for last 4 hours
+          let priceHistory: { timestamp: number; price: number }[] = [];
+          let shortTermTrend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
+          let volatility = 0;
+          let rsiApprox = 50;
+          
+          try {
+            // Get hourly data for last 4 hours from CryptoCompare
+            const histResponse = await fetch(
+              `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol}&tsym=USD&limit=4`
+            );
+            
+            if (histResponse.ok) {
+              const histData = await histResponse.json();
+              if (histData.Data && histData.Data.Data) {
+                priceHistory = histData.Data.Data.map((candle: any) => ({
+                  timestamp: candle.time * 1000,
+                  price: candle.close,
+                }));
+                
+                // Calculate short-term trend (last 4 hours)
+                if (priceHistory.length >= 2) {
+                  const firstPrice = priceHistory[0].price;
+                  const lastPrice = priceHistory[priceHistory.length - 1].price;
+                  const trendChange = ((lastPrice - firstPrice) / firstPrice) * 100;
+                  
+                  if (trendChange > 1) shortTermTrend = "UP";
+                  else if (trendChange < -1) shortTermTrend = "DOWN";
+                  else shortTermTrend = "SIDEWAYS";
+                }
+                
+                // Calculate volatility (standard deviation of price changes)
+                if (priceHistory.length >= 2) {
+                  const changes = [];
+                  for (let i = 1; i < priceHistory.length; i++) {
+                    const change = ((priceHistory[i].price - priceHistory[i-1].price) / priceHistory[i-1].price) * 100;
+                    changes.push(change);
+                  }
+                  if (changes.length > 0) {
+                    const mean = changes.reduce((a, b) => a + b, 0) / changes.length;
+                    const variance = changes.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / changes.length;
+                    volatility = Math.sqrt(variance);
+                  }
+                }
+                
+                // Calculate approximate RSI (simplified)
+                if (priceHistory.length >= 2) {
+                  const gains: number[] = [];
+                  const losses: number[] = [];
+                  
+                  for (let i = 1; i < priceHistory.length; i++) {
+                    const change = ((priceHistory[i].price - priceHistory[i-1].price) / priceHistory[i-1].price) * 100;
+                    if (change > 0) gains.push(change);
+                    else losses.push(Math.abs(change));
+                  }
+                  
+                  const avgGain = gains.length > 0 ? gains.reduce((a, b) => a + b, 0) / gains.length : 0;
+                  const avgLoss = losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+                  
+                  if (avgLoss > 0) {
+                    const rs = avgGain / avgLoss;
+                    rsiApprox = 100 - (100 / (1 + rs));
+                  } else if (avgGain > 0) {
+                    rsiApprox = 100;
+                  } else {
+                    rsiApprox = 50;
+                  }
+                }
+              }
+            }
+          } catch (histError) {
+            // If historical data fails, continue without it
+            console.log(`Could not fetch historical data for ${symbol}, continuing without it`);
+          }
+          
           marketData.push({
             symbol: symbol as SupportedCrypto,
-            currentPrice: raw.PRICE || 0,
+            currentPrice,
             change24h: raw.CHANGEPCT24HOUR || 0,
             volume24h: raw.TOTALVOLUME24H || 0,
-            high24h: raw.HIGH24HOUR || raw.PRICE || 0,
-            low24h: raw.LOW24HOUR || raw.PRICE || 0,
+            high24h,
+            low24h,
+            priceHistory: priceHistory.length > 0 ? priceHistory : undefined,
+            shortTermTrend,
+            volatility: volatility > 0 ? volatility : undefined,
+            distanceFromHigh,
+            distanceFromLow,
+            rsiApprox,
           });
         }
       }
@@ -851,7 +940,7 @@ export class TradingEngine {
       .from(positions)
       .where(eq(positions.agentId, agent.id));
     
-    // Convert positions to array for LLM context with actual entry prices
+    // Convert positions to array for LLM context with enhanced data
     const openPositions = dbPositions.map((pos) => {
       const asset = pos.asset as SupportedCrypto;
       const marketInfo = marketData.find((m) => m.symbol === asset);
@@ -868,6 +957,26 @@ export class TradingEngine {
         unrealizedPnL = (entryPrice - currentPrice) * size * leverage;
       }
       
+      // Calculate time open (minutes since position was opened)
+      const openedAt = pos.openedAt ? new Date(pos.openedAt) : new Date();
+      const timeOpen = Math.floor((Date.now() - openedAt.getTime()) / (1000 * 60)); // minutes
+      
+      // Calculate distance from entry price (%)
+      const distanceFromEntry = entryPrice > 0 
+        ? ((currentPrice - entryPrice) / entryPrice) * 100 
+        : 0;
+      
+      // Calculate PnL percentage (with leverage)
+      // This is the actual PnL percentage of the position considering leverage
+      const positionValue = entryPrice * size * leverage; // Initial position value
+      const pnlPercentage = positionValue > 0 
+        ? (unrealizedPnL / positionValue) * 100 
+        : 0;
+      
+      // Get best PnL from performance snapshots (approximate)
+      // This is a simplified version - in production you might want to track this better
+      const bestPnL = unrealizedPnL > 0 ? unrealizedPnL : 0;
+      
       return {
         asset,
         size,
@@ -875,8 +984,49 @@ export class TradingEngine {
         currentPrice,
         unrealizedPnL,
         side: pos.side as "LONG" | "SHORT",
+        timeOpen,
+        bestPnL,
+        distanceFromEntry,
+        pnlPercentage, // Add PnL percentage
       };
     });
+
+    // Check for automatic stop-loss at -10% PnL BEFORE consulting LLM
+    const STOP_LOSS_THRESHOLD = -10; // -10% PnL triggers automatic stop-loss
+    for (const position of openPositions) {
+      if (position.pnlPercentage !== undefined && position.pnlPercentage <= STOP_LOSS_THRESHOLD) {
+        console.log(`🛑 [${agent.name}] AUTOMATIC STOP-LOSS triggered for ${position.asset}: ${position.pnlPercentage.toFixed(2)}% PnL`);
+        
+        // Automatically close the position
+        const closeDecision: any = {
+          action: "CLOSE",
+          asset: position.asset,
+          direction: undefined,
+          strategy: null,
+          positionSizePercent: 0,
+          reasoning: `Automatic stop-loss triggered at ${position.pnlPercentage.toFixed(2)}% PnL`,
+          confidence: 1.0,
+        };
+        
+        // Log stop-loss event
+        await db.insert(activityEvents).values({
+          agentId: agent.id,
+          eventType: "DECISION_MADE",
+          message: `🛑 AUTOMATIC STOP-LOSS: Closed ${position.asset} position at ${position.pnlPercentage.toFixed(2)}% PnL to limit losses`,
+          asset: position.asset,
+          strategy: null,
+        });
+        
+        // Execute the stop-loss
+        await this.executeLLMTrade(agent, closeDecision, marketData);
+        
+        // Remove from openPositions array so it's not included in LLM context
+        const index = openPositions.findIndex(p => p.asset === position.asset && p.side === position.side);
+        if (index > -1) {
+          openPositions.splice(index, 1);
+        }
+      }
+    }
 
     // Get recent trade count for this cycle
     const recentOrders = await db

@@ -13,6 +13,16 @@ export interface MarketData {
   volume24h?: number;
   high24h?: number;
   low24h?: number;
+  // Extended data for better AI decisions
+  priceHistory?: {
+    timestamp: number;
+    price: number;
+  }[]; // Last 4 hours of hourly prices
+  shortTermTrend?: "UP" | "DOWN" | "SIDEWAYS"; // Trend in last 4 hours
+  volatility?: number; // Price volatility in last 4 hours (%)
+  distanceFromHigh?: number; // % distance from 24h high
+  distanceFromLow?: number; // % distance from 24h low
+  rsiApprox?: number; // Approximate RSI (0-100)
 }
 
 export interface StrategyContext {

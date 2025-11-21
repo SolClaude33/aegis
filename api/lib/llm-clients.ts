@@ -58,6 +58,10 @@ export interface LLMAnalysisContext {
     currentPrice: number;
     unrealizedPnL: number;
     side?: "LONG" | "SHORT"; // Position direction
+    timeOpen?: number; // Minutes since position was opened
+    bestPnL?: number; // Best PnL this position has reached
+    distanceFromEntry?: number; // % change from entry price
+    pnlPercentage?: number; // PnL percentage (with leverage)
   }[];
   marketData: (MarketData & { symbol: SupportedCrypto })[];
   previousDecisions?: string[]; // Last 3 decisions for context
@@ -65,7 +69,7 @@ export interface LLMAnalysisContext {
 
 // Common interface for all LLM clients
 export interface LLMClient {
-  analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision>;
+  analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision | LLMTradingDecision[]>;
 }
 
 // OpenAI client (GPT-5)

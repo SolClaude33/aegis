@@ -753,7 +753,7 @@ export class TradingEngine {
       .from(positions)
       .where(eq(positions.agentId, agent.id));
     
-    // Convert positions to array for LLM context with actual entry prices
+    // Convert positions to array for LLM context with enhanced data
     const openPositions = dbPositions.map((pos) => {
       const asset = pos.asset as SupportedCrypto;
       const marketInfo = marketData.find((m) => m.symbol === asset);
@@ -770,6 +770,24 @@ export class TradingEngine {
         unrealizedPnL = (entryPrice - currentPrice) * size * leverage;
       }
       
+      // Calculate time open (minutes since position was opened)
+      const openedAt = pos.openedAt ? new Date(pos.openedAt) : new Date();
+      const timeOpen = Math.floor((Date.now() - openedAt.getTime()) / (1000 * 60)); // minutes
+      
+      // Calculate distance from entry price (%)
+      const distanceFromEntry = entryPrice > 0 
+        ? ((currentPrice - entryPrice) / entryPrice) * 100 
+        : 0;
+      
+      // Calculate PnL percentage (with leverage)
+      const positionValue = entryPrice * size * leverage; // Initial position value
+      const pnlPercentage = positionValue > 0 
+        ? (unrealizedPnL / positionValue) * 100 
+        : 0;
+      
+      // Get best PnL (simplified - use current if positive)
+      const bestPnL = unrealizedPnL > 0 ? unrealizedPnL : 0;
+      
       return {
         asset,
         size,
@@ -777,8 +795,49 @@ export class TradingEngine {
         currentPrice,
         unrealizedPnL,
         side: pos.side as "LONG" | "SHORT",
+        timeOpen,
+        bestPnL,
+        distanceFromEntry,
+        pnlPercentage, // Add PnL percentage
       };
     });
+
+    // Check for automatic stop-loss at -10% PnL BEFORE consulting LLM
+    const STOP_LOSS_THRESHOLD = -10; // -10% PnL triggers automatic stop-loss
+    for (const position of openPositions) {
+      if (position.pnlPercentage !== undefined && position.pnlPercentage <= STOP_LOSS_THRESHOLD) {
+        console.log(`🛑 [${agent.name}] AUTOMATIC STOP-LOSS triggered for ${position.asset}: ${position.pnlPercentage.toFixed(2)}% PnL`);
+        
+        // Automatically close the position
+        const closeDecision: any = {
+          action: "CLOSE",
+          asset: position.asset,
+          direction: undefined,
+          strategy: null,
+          positionSizePercent: 0,
+          reasoning: `Automatic stop-loss triggered at ${position.pnlPercentage.toFixed(2)}% PnL`,
+          confidence: 1.0,
+        };
+        
+        // Log stop-loss event
+        await db.insert(activityEvents).values({
+          agentId: agent.id,
+          eventType: "DECISION_MADE",
+          message: `🛑 AUTOMATIC STOP-LOSS: Closed ${position.asset} position at ${position.pnlPercentage.toFixed(2)}% PnL to limit losses`,
+          asset: position.asset,
+          strategy: null,
+        });
+        
+        // Execute the stop-loss
+        await this.executeLLMTrade(agent, closeDecision, marketData);
+        
+        // Remove from openPositions array so it's not included in LLM context
+        const index = openPositions.findIndex(p => p.asset === position.asset && p.side === position.side);
+        if (index > -1) {
+          openPositions.splice(index, 1);
+        }
+      }
+    }
 
     // Get recent trade count for this cycle
     const recentOrders = await db
@@ -801,75 +860,93 @@ export class TradingEngine {
     };
 
     try {
-      // Consult LLM for trading decision
-      const decision = await llmClient.analyzeMarket(llmContext);
+      // Consult LLM for trading decision(s) - can return single decision or array
+      const llmResponse = await llmClient.analyzeMarket(llmContext);
       
-      console.log(`💭 ${agent.name} Decision:`);
-      console.log(`   Action: ${decision.action}`);
-      console.log(`   Asset: ${decision.asset || "N/A"}`);
-      console.log(`   Strategy: ${decision.strategy || "N/A"}`);
-      console.log(`   Position Size: ${decision.positionSizePercent}%`);
-      console.log(`   Confidence: ${(decision.confidence * 100).toFixed(0)}%`);
-      console.log(`   Reasoning: ${decision.reasoning}`);
+      // Normalize to array - handle both single decision and array of decisions
+      const decisions = Array.isArray(llmResponse) ? llmResponse : [llmResponse];
+      
+      console.log(`💭 ${agent.name} made ${decisions.length} decision(s) in this cycle`);
 
-      // If decision is HOLD, log the reasoning and skip execution
-      if (decision.action === "HOLD") {
-        console.log(`✋ ${agent.name} decided to HOLD`);
+      // Process each decision
+      for (let i = 0; i < decisions.length && i < 3; i++) { // Max 3 decisions per cycle
+        const decision = decisions[i];
+        
+        console.log(`💭 ${agent.name} Decision ${i + 1}/${decisions.length}:`);
+        console.log(`   Action: ${decision.action}`);
+        console.log(`   Asset: ${decision.asset || "N/A"}`);
+        console.log(`   Strategy: ${decision.strategy || "N/A"}`);
+        console.log(`   Position Size: ${decision.positionSizePercent}%`);
+        console.log(`   Confidence: ${(decision.confidence * 100).toFixed(0)}%`);
         console.log(`   Reasoning: ${decision.reasoning}`);
+
+        // If decision is HOLD, log the reasoning and skip execution
+        if (decision.action === "HOLD") {
+          console.log(`✋ ${agent.name} decided to HOLD`);
+          console.log(`   Reasoning: ${decision.reasoning}`);
+          
+          // Log HOLD decision with full reasoning to activity feed (similar to OPEN/CLOSE format)
+          await db.insert(activityEvents).values({
+            agentId: agent.id,
+            eventType: "DECISION_MADE",
+            message: `HOLD using ${decision.strategy || "default"} strategy - ${decision.reasoning || "No specific reasoning provided"}`,
+            asset: null,
+            strategy: decision.strategy || null,
+          });
+          
+          continue; // Skip to next decision
+        }
+
+        // Validate decision with algorithmic rules
+        const validationContext: ValidationContext = {
+          agentCapital: parseFloat(agent.currentCapital),
+          openPositions: openPositions.map((p) => ({
+            asset: p.asset,
+            size: p.size,
+            entryPrice: p.entryPrice,
+            side: p.side, // Include side for validation
+          })),
+          marketData,
+          recentTrades: recentTrades + i, // Increment trade count for each decision in the cycle
+        };
+
+        const validation = tradingValidator.validate(decision, validationContext);
+
+        if (!validation.isValid) {
+          console.log(`❌ ${agent.name} decision ${i + 1} rejected: ${validation.reason}`);
+          
+          // Log rejected decision
+          await db.insert(activityEvents).values({
+            agentId: agent.id,
+            eventType: "DECISION_REJECTED",
+            message: `Decision ${i + 1} rejected: ${validation.reason}`,
+            asset: decision.asset || undefined,
+            strategy: decision.strategy || undefined,
+          });
+          
+          continue; // Skip to next decision
+        }
+
+        // Apply any adjustments from validation
+        const finalDecision = {
+          ...decision,
+          ...validation.adjustedDecision,
+        };
+
+        if (validation.adjustedDecision) {
+          console.log(`⚙️  Decision ${i + 1} adjusted by validator`);
+        }
+
+        // Execute the validated trade
+        await this.executeLLMTrade(agent, finalDecision, marketData);
         
-        // Log HOLD decision with full reasoning to activity feed (similar to OPEN/CLOSE format)
-        await db.insert(activityEvents).values({
-          agentId: agent.id,
-          eventType: "DECISION_MADE",
-          message: `HOLD using ${decision.strategy || "default"} strategy - ${decision.reasoning || "No specific reasoning provided"}`,
-          asset: null,
-          strategy: decision.strategy || null,
-        });
-        
-        return;
+        // Update recentTrades count for next decision validation
+        recentTrades++;
       }
-
-      // Validate decision with algorithmic rules
-      const validationContext: ValidationContext = {
-        agentCapital: parseFloat(agent.currentCapital),
-        openPositions: openPositions.map((p) => ({
-          asset: p.asset,
-          size: p.size,
-          entryPrice: p.entryPrice,
-        })),
-        marketData,
-        recentTrades,
-      };
-
-      const validation = tradingValidator.validate(decision, validationContext);
-
-      if (!validation.isValid) {
-        console.log(`❌ ${agent.name} decision rejected: ${validation.reason}`);
-        
-        // Log rejected decision
-        await db.insert(activityEvents).values({
-          agentId: agent.id,
-          eventType: "DECISION_REJECTED",
-          message: `Decision rejected: ${validation.reason}`,
-          asset: decision.asset || undefined,
-          strategy: decision.strategy || undefined,
-        });
-        
-        return;
+      
+      if (decisions.length > 3) {
+        console.log(`⚠️  ${agent.name} made ${decisions.length} decisions but only first 3 were processed (limit)`);
       }
-
-      // Apply any adjustments from validation
-      const finalDecision = {
-        ...decision,
-        ...validation.adjustedDecision,
-      };
-
-      if (validation.adjustedDecision) {
-        console.log(`⚙️  Decision adjusted by validator`);
-      }
-
-      // Execute the validated trade
-      await this.executeLLMTrade(agent, finalDecision, marketData);
     } catch (error) {
       console.error(`Error getting LLM decision for ${agent.name}:`, error);
     }

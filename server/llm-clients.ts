@@ -59,6 +59,10 @@ export interface LLMAnalysisContext {
     currentPrice: number;
     unrealizedPnL: number;
     side?: "LONG" | "SHORT"; // Position direction
+    timeOpen?: number; // Minutes since position was opened
+    bestPnL?: number; // Best PnL this position has reached
+    distanceFromEntry?: number; // % change from entry price
+    pnlPercentage?: number; // PnL percentage (with leverage)
   }[];
   marketData: (MarketData & { symbol: SupportedCrypto })[];
   previousDecisions?: string[]; // Last 3 decisions for context
@@ -66,7 +70,157 @@ export interface LLMAnalysisContext {
 
 // Common interface for all LLM clients
 export interface LLMClient {
-  analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision>;
+  analyzeMarket(context: LLMAnalysisContext): Promise<LLMTradingDecision | LLMTradingDecision[]>;
+}
+
+// Helper function to build enhanced prompt with all market data
+export function buildEnhancedPrompt(context: LLMAnalysisContext): string {
+  const strategiesDesc = Object.entries(TRADING_STRATEGIES)
+    .map(([key, val]) => `- ${key}: ${val.description}`)
+    .join("\n");
+
+  // Enhanced market data description with all available metrics
+  const marketsDesc = context.marketData.map(m => {
+    let desc = `${m.symbol}: $${m.currentPrice.toFixed(2)} (24h: ${m.change24h > 0 ? '+' : ''}${m.change24h.toFixed(2)}%)`;
+    
+    if (m.volume24h) {
+      desc += ` | Vol: $${(m.volume24h / 1000000).toFixed(1)}M`;
+    }
+    
+    if (m.high24h && m.low24h) {
+      desc += ` | Range: $${m.low24h.toFixed(2)} - $${m.high24h.toFixed(2)}`;
+      if (m.distanceFromHigh !== undefined) {
+        desc += ` | ${m.distanceFromHigh > 0 ? '+' : ''}${m.distanceFromHigh.toFixed(1)}% from high`;
+      }
+      if (m.distanceFromLow !== undefined) {
+        desc += `, ${m.distanceFromLow > 0 ? '+' : ''}${m.distanceFromLow.toFixed(1)}% from low`;
+      }
+    }
+    
+    if (m.shortTermTrend) {
+      desc += ` | 4h trend: ${m.shortTermTrend}`;
+    }
+    
+    if (m.volatility !== undefined) {
+      desc += ` | Volatility: ${m.volatility.toFixed(2)}%`;
+    }
+    
+    if (m.rsiApprox !== undefined) {
+      const rsiStatus = m.rsiApprox > 70 ? "OVERBOUGHT" : m.rsiApprox < 30 ? "OVERSOLD" : "NEUTRAL";
+      desc += ` | RSI: ${m.rsiApprox.toFixed(0)} (${rsiStatus})`;
+    }
+    
+    if (m.priceHistory && m.priceHistory.length > 0) {
+      const recentPrices = m.priceHistory.slice(-4).map(h => `$${h.price.toFixed(0)}`).join(" → ");
+      desc += ` | Recent: ${recentPrices}`;
+    }
+    
+    return desc;
+  }).join("\n");
+
+  // Asset performance ranking
+  const sortedByPerformance = [...context.marketData].sort((a, b) => b.change24h - a.change24h);
+  const performanceRanking = sortedByPerformance.map((m, idx) => 
+    `${idx + 1}. ${m.symbol} (+${m.change24h.toFixed(2)}%)`
+  ).join(", ");
+
+  // Enhanced positions description with time open, best PnL, distance from entry, and PnL percentage
+  const positionsDesc = context.openPositions.length > 0
+    ? context.openPositions.map(p => {
+        let desc = `${p.asset} ${p.side}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)}`;
+        desc += ` | Current: $${p.currentPrice.toFixed(2)}`;
+        desc += ` | PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)}`;
+        
+        // Add PnL percentage (most important for decision making)
+        if (p.pnlPercentage !== undefined) {
+          desc += ` (${p.pnlPercentage > 0 ? '+' : ''}${p.pnlPercentage.toFixed(2)}%)`;
+        }
+        
+        if (p.distanceFromEntry !== undefined) {
+          desc += ` | Price change: ${p.distanceFromEntry > 0 ? '+' : ''}${p.distanceFromEntry.toFixed(2)}%`;
+        }
+        
+        if (p.timeOpen !== undefined) {
+          const hours = Math.floor(p.timeOpen / 60);
+          const minutes = p.timeOpen % 60;
+          desc += ` | Open: ${hours}h ${minutes}m`;
+        }
+        
+        if (p.bestPnL !== undefined && p.bestPnL > 0) {
+          desc += ` | Best PnL: +$${p.bestPnL.toFixed(2)}`;
+        }
+        
+        return desc;
+      }).join("\n")
+    : "No open positions";
+
+  return `You are ${context.agentName}, an AI trading agent competing against other AIs in a competitive trading arena.
+
+CURRENT STATE:
+- Capital: $${context.currentCapital.toFixed(2)}
+- Open Positions:
+${positionsDesc}
+
+MARKET DATA (3 cryptocurrencies) - Detailed Analysis:
+${marketsDesc}
+
+ASSET PERFORMANCE RANKING (24h):
+${performanceRanking}
+
+AVAILABLE STRATEGIES (you can choose ANY strategy based on your own analysis):
+${strategiesDesc}
+
+IMPORTANT: 
+- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
+- Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly and choose what YOU think is best for the current market
+- Look for opportunities even if conditions don't match perfectly
+- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
+- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
+
+RISK LIMITS (ENFORCED):
+- Max position size: 25% of capital per trade (margin) - per asset
+- Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
+- Max loss per trade: 5%
+- Max 3 trades per 2-minute cycle
+- Minimum trade: $7 margin
+- MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
+
+TASK:
+Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze the market and decide:
+1. Which action: OPEN, CLOSE, or HOLD
+   - OPEN: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
+   - CLOSE: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
+   - HOLD: Wait for better opportunities or let existing positions develop
+2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
+3. Direction (only for OPEN): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
+4. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
+5. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
+6. Your reasoning (concise explanation - especially important when closing positions to justify why)
+7. Confidence level: 0.0-1.0
+
+POSITION MANAGEMENT RULES:
+- AUTOMATIC STOP-LOSS: Positions with PnL <= -10% are AUTOMATICALLY closed by the system (you don't need to close them - they're already handled)
+- For POSITIVE PnL positions: If you have HIGH confidence (>= 0.8) in your strategy, you can let profitable positions run as long as you want - don't feel pressured to close them early. With high confidence, let winners run!
+- For NEGATIVE PnL positions: If PnL is between -5% and -10%, consider closing to cut losses before the automatic stop-loss triggers at -10%
+- If PnL is very positive (> +15%), you may consider taking profits, but with high confidence (>= 0.8) you can let it run longer
+- Small PnL changes (-1% to +1%) are normal market noise - let positions develop
+
+Remember: 
+- Be PROACTIVE to FIND opportunities (both LONG and SHORT), but PATIENT to DEVELOP positions
+- You can profit from BOTH upward (LONG) and downward (SHORT) movements!
+- You're competing against other AIs, but premature closing can hurt your performance
+- You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
+
+Respond ONLY with valid JSON:
+{
+  "action": "OPEN" | "CLOSE" | "HOLD",
+  "asset": "BTC" | "ETH" | "BNB" | null,
+  "direction": "LONG" | "SHORT" | null (required if action is OPEN),
+  "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
+  "positionSizePercent": 0-25,
+  "reasoning": "your analysis",
+  "confidence": 0.0-1.0
+}`;
 }
 
 // OpenAI client (GPT-5)
@@ -111,111 +265,51 @@ export class OpenAIClient implements LLMClient {
   }
 
   private buildPrompt(context: LLMAnalysisContext): string {
-    const strategiesDesc = Object.entries(TRADING_STRATEGIES)
-      .map(([key, val]) => `- ${key}: ${val.description}`)
-      .join("\n");
-
-    const marketsDesc = context.marketData
-      .map(m => `${m.symbol}: $${m.currentPrice.toFixed(2)} (24h: ${m.change24h > 0 ? '+' : ''}${m.change24h.toFixed(2)}%)`)
-      .join("\n");
-
-    const positionsDesc = context.openPositions.length > 0
-      ? context.openPositions.map(p => 
-          `${p.asset}: ${p.size.toFixed(4)} units @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnL > 0 ? '+' : ''}$${p.unrealizedPnL.toFixed(2)})`
-        ).join("\n")
-      : "No open positions";
-
-    return `You are ${context.agentName}, an AI trading agent competing against other AIs in a competitive trading arena.
-
-CURRENT STATE:
-- Capital: $${context.currentCapital.toFixed(2)}
-- Open Positions:
-${positionsDesc}
-
-MARKET DATA (3 cryptocurrencies):
-${marketsDesc}
-
-AVAILABLE STRATEGIES (you can choose ANY strategy based on your own analysis):
-${strategiesDesc}
-
-IMPORTANT: 
-- You have COMPLETE FREEDOM to choose any strategy (momentum, swing, conservative, aggressive, trend_follower, mean_reversion) based on your own analysis
-- Strategy descriptions show IDEAL conditions, but you should INTERPRET them flexibly and choose what YOU think is best for the current market
-- Look for opportunities even if conditions don't match perfectly
-- Be PROACTIVE - find trading opportunities, don't wait for perfect conditions
-- Choose the strategy that YOU believe will work best for each trade - you're not limited to one strategy
-
-RISK LIMITS (ENFORCED):
-- Max position size: 25% of capital per trade (margin) - per asset
-- Trading with 3x leverage: If you use $25 margin, AsterDex executes $75 notional
-- Max loss per trade: 5%
-- Max 3 trades per 2-minute cycle
-- Minimum trade: $7 margin
-- MULTIPLE POSITIONS: You can have positions in BTC, ETH, and BNB simultaneously! Each asset can have up to 25% of capital. You can diversify across all 3 pairs if you see opportunities.
-
-TASK:
-Be PROACTIVE when finding NEW opportunities (both LONG and SHORT), but PATIENT when managing EXISTING positions. Analyze the market and decide:
-1. Which action: OPEN, CLOSE, or HOLD
-   - OPEN: Open a new position. Requires "direction": "LONG" (profit if price goes UP) or "SHORT" (profit if price goes DOWN)
-   - CLOSE: Close an existing position to take profits or cut losses. Only use if you have an open position in the asset.
-   - HOLD: Wait for better opportunities or let existing positions develop
-2. Which asset: ${SUPPORTED_CRYPTOS.join(", ")} (or null if HOLD). You can trade different assets even if you already have positions in others!
-3. Direction (only for OPEN): "LONG" if you expect price to go UP, "SHORT" if you expect price to go DOWN
-4. Which strategy to use: momentum, swing, conservative, aggressive, trend_follower, or mean_reversion (or null if HOLD)
-5. Position size as % of capital: 0-25 (or 0 if HOLD). This is your margin, AsterDex will multiply by 3x leverage
-6. Your reasoning (concise explanation - especially important when closing positions to justify why)
-7. Confidence level: 0.0-1.0
-
-Remember: 
-- Be PROACTIVE to FIND opportunities (both LONG and SHORT), but PATIENT to DEVELOP positions
-- You can profit from BOTH upward (LONG) and downward (SHORT) movements!
-- Small PnL changes (-1% to +1%) are normal market noise - let your positions develop
-- You're competing against other AIs, but premature closing can hurt your performance
-- You can diversify by having positions in multiple assets (BTC, ETH, BNB) at the same time!
-
-Respond ONLY with valid JSON:
-{
-  "action": "OPEN" | "CLOSE" | "HOLD",
-  "asset": "BTC" | "ETH" | "BNB" | null,
-  "direction": "LONG" | "SHORT" | null (required if action is OPEN),
-  "strategy": "momentum" | "swing" | "conservative" | "aggressive" | "trend_follower" | "mean_reversion" | null,
-  "positionSizePercent": 0-25,
-  "reasoning": "your analysis",
-  "confidence": 0.0-1.0
-}`;
+    return buildEnhancedPrompt(context);
   }
 
-  private parseResponse(content: string): LLMTradingDecision {
+  private parseResponse(content: string): LLMTradingDecision | LLMTradingDecision[] {
     try {
       const parsed = JSON.parse(content);
       
-      // Normalize action: accept both "OPEN"/"CLOSE" and "OPEN_POSITION"/"CLOSE_POSITION"
-      let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
-      if (parsed.action === "OPEN" || parsed.action === "OPEN_POSITION") {
-        normalizedAction = "OPEN_POSITION";
-      } else if (parsed.action === "CLOSE" || parsed.action === "CLOSE_POSITION") {
-        normalizedAction = "CLOSE_POSITION";
-      } else {
-        normalizedAction = "HOLD";
+      // Check if response contains multiple decisions
+      if (parsed.decisions && Array.isArray(parsed.decisions)) {
+        // Return array of decisions
+        return parsed.decisions.map((d: any) => this.parseSingleDecision(d));
       }
       
-      return {
-        action: normalizedAction,
-        asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
-        direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
-          ? parsed.direction 
-          : undefined,
-        strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
-          ? parsed.strategy 
-          : null,
-        positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
-        reasoning: parsed.reasoning || "No reasoning provided",
-        confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
-      };
+      // Single decision
+      return this.parseSingleDecision(parsed);
     } catch (error) {
       console.error("[OpenAI] Failed to parse response:", content);
       return this.getDefaultDecision("Invalid JSON response");
     }
+  }
+
+  private parseSingleDecision(parsed: any): LLMTradingDecision {
+    // Normalize action: accept both "OPEN"/"CLOSE" and "OPEN_POSITION"/"CLOSE_POSITION"
+    let normalizedAction: "OPEN_POSITION" | "CLOSE_POSITION" | "HOLD";
+    if (parsed.action === "OPEN" || parsed.action === "OPEN_POSITION") {
+      normalizedAction = "OPEN_POSITION";
+    } else if (parsed.action === "CLOSE" || parsed.action === "CLOSE_POSITION") {
+      normalizedAction = "CLOSE_POSITION";
+    } else {
+      normalizedAction = "HOLD";
+    }
+    
+    return {
+      action: normalizedAction,
+      asset: SUPPORTED_CRYPTOS.includes(parsed.asset) ? parsed.asset : null,
+      direction: normalizedAction === "OPEN_POSITION" && (parsed.direction === "LONG" || parsed.direction === "SHORT")
+        ? parsed.direction 
+        : undefined,
+      strategy: parsed.strategy && TRADING_STRATEGIES[parsed.strategy as StrategyType] 
+        ? parsed.strategy 
+        : null,
+      positionSizePercent: Math.min(Math.max(parsed.positionSizePercent || 0, 0), 25),
+      reasoning: parsed.reasoning || "No reasoning provided",
+      confidence: Math.min(Math.max(parsed.confidence || 0.5, 0), 1),
+    };
   }
 
   private getDefaultDecision(reason: string): LLMTradingDecision {
