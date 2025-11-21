@@ -478,11 +478,28 @@ export class TradingEngine {
       // Get positions from AsterDex
       const asterdexPositions = await agentClient.getPositions();
       
+      console.log(`🔄 [${agent[0].name}] Syncing positions from AsterDex:`, {
+        asterdexPositionsCount: asterdexPositions.length,
+        positions: asterdexPositions.map(p => ({
+          symbol: p.symbol,
+          positionAmt: p.positionAmt || p.position,
+        })),
+      });
+      
       // Get existing positions from database for this agent
       const existingPositions = await db
         .select()
         .from(positions)
         .where(eq(positions.agentId, agentId));
+      
+      console.log(`📊 [${agent[0].name}] Existing positions in DB:`, {
+        count: existingPositions.length,
+        positions: existingPositions.map(p => ({
+          asset: p.asset,
+          side: p.side,
+          size: p.size,
+        })),
+      });
 
       // Create a map of existing positions by asset
       const existingPositionsMap = new Map<string, typeof existingPositions[0]>();
@@ -551,22 +568,35 @@ export class TradingEngine {
             })
             .where(eq(positions.id, existingPos.id));
         } else {
-          // Create new position - find the most recent BUY order for this asset
+          // Create new position - find the most recent order for this asset
+          // For LONG positions (positionAmt > 0), look for BUY orders
+          // For SHORT positions (positionAmt < 0), look for SELL orders
+          const expectedSide = positionAmt > 0 ? "BUY" : "SELL";
           const recentOrder = await db
             .select()
             .from(asterdexOrders)
             .where(eq(asterdexOrders.agentId, agentId))
             .where(eq(asterdexOrders.symbol, pos.symbol || `${normalizedSymbol}USDT`))
-            .where(eq(asterdexOrders.side, "BUY"))
+            .where(eq(asterdexOrders.side, expectedSide))
             .orderBy(desc(asterdexOrders.createdAt))
             .limit(1);
 
           const txHash = recentOrder[0]?.txHash || "";
 
+          const positionSide = positionAmt > 0 ? "LONG" : "SHORT";
+          console.log(`➕ [${agent[0].name}] Creating new position in DB:`, {
+            asset: normalizedSymbol,
+            side: positionSide,
+            size: Math.abs(positionAmt).toFixed(8),
+            entryPrice: entryPrice.toFixed(2),
+            foundOrder: !!recentOrder[0],
+            orderSide: expectedSide,
+          });
+          
           await db.insert(positions).values({
             agentId: agentId,
             asset: normalizedSymbol,
-            side: positionAmt > 0 ? "LONG" : "SHORT",
+            side: positionSide,
             size: Math.abs(positionAmt).toFixed(8),
             entryPrice: entryPrice.toFixed(2),
             currentPrice: currentPrice.toFixed(2),
@@ -578,6 +608,8 @@ export class TradingEngine {
             llmConfidence: recentOrder[0]?.llmConfidence || null,
             openTxHash: txHash,
           });
+          
+          console.log(`✅ [${agent[0].name}] Position created in DB: ${normalizedSymbol} ${positionSide}`);
         }
       }
 
@@ -1002,11 +1034,19 @@ export class TradingEngine {
         txHash: orderResponse.txHash,
       });
 
-      console.log(`✅ Order executed for ${agent.name}: ${orderResponse.orderId}`);
+      console.log(`✅ Order executed for ${agent.name}: ${orderResponse.orderId}`, {
+        symbol: asterdexSymbol,
+        side: asterdexSide,
+        quantity: formattedQuantity,
+        status: orderResponse.status,
+        direction: isOpenAction ? decision.direction : null,
+      });
       
       // Sync positions from AsterDex to database after successful trade
       // This must happen BEFORE creating snapshot to ensure unrealized PnL is calculated
+      console.log(`🔄 [${agent.name}] Syncing positions after order execution...`);
       await this.syncPositionsFromAsterDex(agent.id, marketData);
+      console.log(`✅ [${agent.name}] Positions synced after order execution`);
       
       // Small delay to ensure positions are synced and prices are updated
       await new Promise(resolve => setTimeout(resolve, 500));
