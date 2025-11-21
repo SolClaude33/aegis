@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,50 +22,8 @@ export default function TradingControl() {
     }
   }, []);
 
-  // Fetch trading status
-  const { data: status, isLoading: statusLoading } = useQuery<{
-    isRunning: boolean;
-    isPaused: boolean;
-    isTrading: boolean;
-  }>({
-    queryKey: ["/api/trading/status"],
-    enabled: isAuthenticated && apiKey.length > 0,
-    refetchInterval: 5000, // Refetch every 5 seconds
-    retry: false,
-    onError: () => {
-      setIsAuthenticated(false);
-    },
-  });
-
-  const saveApiKey = () => {
-    if (apiKey.trim().length === 0) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa una API key",
-        variant: "destructive",
-      });
-      return;
-    }
-    localStorage.setItem("trading_api_key", apiKey);
-    setIsAuthenticated(true);
-    toast({
-      title: "API Key guardada",
-      description: "La API key ha sido guardada localmente",
-    });
-    queryClient.invalidateQueries({ queryKey: ["/api/trading/status"] });
-  };
-
-  const removeApiKey = () => {
-    localStorage.removeItem("trading_api_key");
-    setApiKey("");
-    setIsAuthenticated(false);
-    toast({
-      title: "API Key eliminada",
-      description: "La API key ha sido eliminada",
-    });
-  };
-
-  const makeRequest = async (endpoint: string, method: string = "GET", body?: any) => {
+  // Define makeRequest before useQuery so it can be used in queryFn
+  const makeRequest = useCallback(async (endpoint: string, method: string = "GET", body?: any) => {
     try {
       const response = await fetch(endpoint, {
         method,
@@ -100,6 +58,53 @@ export default function TradingControl() {
       });
       return null;
     }
+  }, [apiKey, toast]);
+
+  // Fetch trading status
+  const { data: status, isLoading: statusLoading } = useQuery<{
+    isRunning: boolean;
+    isPaused: boolean;
+    isTrading: boolean;
+  }>({
+    queryKey: ["/api/trading/status", apiKey], // Include apiKey in query key so it refetches when key changes
+    enabled: isAuthenticated && apiKey.length > 0,
+    queryFn: async () => {
+      const result = await makeRequest("/api/trading/status", "GET");
+      return result as { isRunning: boolean; isPaused: boolean; isTrading: boolean } | null;
+    },
+    refetchInterval: 5000, // Refetch every 5 seconds
+    retry: false,
+    onError: () => {
+      setIsAuthenticated(false);
+    },
+  });
+
+  const saveApiKey = () => {
+    if (apiKey.trim().length === 0) {
+      toast({
+        title: "Error",
+        description: "Por favor ingresa una API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    localStorage.setItem("trading_api_key", apiKey);
+    setIsAuthenticated(true);
+    toast({
+      title: "API Key guardada",
+      description: "La API key ha sido guardada localmente",
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/trading/status"] });
+  };
+
+  const removeApiKey = () => {
+    localStorage.removeItem("trading_api_key");
+    setApiKey("");
+    setIsAuthenticated(false);
+    toast({
+      title: "API Key eliminada",
+      description: "La API key ha sido eliminada",
+    });
   };
 
   const handleResume = async () => {
