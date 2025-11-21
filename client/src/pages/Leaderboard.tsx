@@ -22,6 +22,8 @@ import PriceTracker from "@/components/PriceTracker";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Position } from "@shared/schema";
+import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 
 ChartJS.register(
   CategoryScale,
@@ -54,27 +56,32 @@ ChartJS.register(whiteLegendTextPlugin);
 // Set global defaults for all charts
 ChartJS.defaults.plugins.legend.labels.color = '#FFFFFF';
 
-// Color map for each AI agent - specific colors for easy identification
-const AGENT_COLOR_MAP: Record<string, { border: string; fill: string }> = {
-  "Claude-3.5": {
-    border: "rgba(0, 212, 255, 1)",      // Cyber Blue - Primary
-    fill: "rgba(0, 212, 255, 0.15)",
-  },
-  "DeepSeek-R1": {
-    border: "rgba(0, 255, 136, 1)",      // Cyber Green - Success
-    fill: "rgba(0, 255, 136, 0.15)",
-  },
+// Color map for each AI agent - matching the reference image
+const AGENT_COLOR_MAP: Record<string, { border: string; fill: string; icon: string }> = {
   "GPT-5": {
-    border: "rgba(255, 223, 0, 1)",      // Gold - Premium
-    fill: "rgba(255, 223, 0, 0.15)",
-  },
-  "Grok-4": {
-    border: "rgba(255, 68, 136, 1)",     // Pink - Aggressive
-    fill: "rgba(255, 68, 136, 0.15)",
+    border: "rgba(0, 255, 136, 1)",      // Green - like GPT in image
+    fill: "rgba(0, 255, 136, 0.1)",
+    icon: "S",
   },
   "Gemini-2": {
-    border: "rgba(187, 134, 252, 1)",    // Purple - AI Magic
-    fill: "rgba(187, 134, 252, 0.15)",
+    border: "rgba(187, 134, 252, 1)",    // Purple - like Gemini in image
+    fill: "rgba(187, 134, 252, 0.1)",
+    icon: "G",
+  },
+  "Grok-4": {
+    border: "rgba(255, 255, 255, 1)",    // White - like Grok in image
+    fill: "rgba(255, 255, 255, 0.1)",
+    icon: "Ø",
+  },
+  "Claude-3.5": {
+    border: "rgba(255, 165, 0, 1)",      // Orange - like Claude in image
+    fill: "rgba(255, 165, 0, 0.1)",
+    icon: "C",
+  },
+  "DeepSeek-R1": {
+    border: "rgba(0, 150, 255, 1)",      // Blue - like DeepSeek in image
+    fill: "rgba(0, 150, 255, 0.1)",
+    icon: "S",
   },
 };
 
@@ -82,9 +89,14 @@ const AGENT_COLOR_MAP: Record<string, { border: string; fill: string }> = {
 const DEFAULT_COLOR = {
   border: "rgba(255, 255, 255, 0.5)",
   fill: "rgba(255, 255, 255, 0.1)",
+  icon: "?",
 };
 
+type TimeRange = "1D" | "1W" | "1M" | "3M";
+
 export default function Leaderboard() {
+  const [timeRange, setTimeRange] = useState<TimeRange>("1M");
+
   const { data: agents, isLoading: agentsLoading } = useQuery<Agent[]>({
     queryKey: ["/api/agents"],
     refetchInterval: 10000, // Refresh every 10 seconds to show updated balances and PnL
@@ -123,13 +135,38 @@ export default function Leaderboard() {
     );
   }
 
-  // Prepare chart data - filter to today's data only
+  // Prepare chart data - filter by time range
   const agentMap = new Map(agents.map((a) => [a.id, a]));
   // Map for agent names (used in positions table)
   const agentNameMap = new Map(agents.map(agent => [agent.id, agent.name]));
   
-  // Group all snapshots by agent (no date filter - show all historical data)
-  const groupedData = performanceData.reduce((acc, snapshot) => {
+  // Calculate time range filter
+  const filteredPerformanceData = useMemo(() => {
+    if (!performanceData) return [];
+    
+    const now = Date.now();
+    let cutoffTime = now;
+    
+    switch (timeRange) {
+      case "1D":
+        cutoffTime = now - 24 * 60 * 60 * 1000;
+        break;
+      case "1W":
+        cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
+        break;
+      case "1M":
+        cutoffTime = now - 30 * 24 * 60 * 60 * 1000;
+        break;
+      case "3M":
+        cutoffTime = now - 90 * 24 * 60 * 60 * 1000;
+        break;
+    }
+    
+    return performanceData.filter((s) => new Date(s.timestamp).getTime() >= cutoffTime);
+  }, [performanceData, timeRange]);
+  
+  // Group filtered snapshots by agent
+  const groupedData = filteredPerformanceData.reduce((acc, snapshot) => {
     if (!acc[snapshot.agentId]) {
       acc[snapshot.agentId] = [];
     }
@@ -138,15 +175,49 @@ export default function Leaderboard() {
   }, {} as Record<string, PerformanceSnapshot[]>);
 
   const allTimestamps = Array.from(
-    new Set(performanceData.map((s) => new Date(s.timestamp).getTime()))
+    new Set(filteredPerformanceData.map((s) => new Date(s.timestamp).getTime()))
   ).sort((a, b) => a - b);
+
+  // Calculate current percentage changes for right panel
+  const currentPercentages = useMemo(() => {
+    if (!agents || !performanceData) return new Map<string, number>();
+    
+    const percentages = new Map<string, number>();
+    agents.forEach((agent) => {
+      const agentSnapshots = (groupedData[agent.id] || []).sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      
+      if (agentSnapshots.length >= 2) {
+        const firstSnapshot = agentSnapshots[0];
+        const lastSnapshot = agentSnapshots[agentSnapshots.length - 1];
+        const firstValue = Number(firstSnapshot.accountValue);
+        const lastValue = Number(lastSnapshot.accountValue);
+        
+        if (firstValue > 0) {
+          const percentage = ((lastValue - firstValue) / firstValue) * 100;
+          percentages.set(agent.name, percentage);
+        }
+      } else if (agentSnapshots.length === 1) {
+        // If only one snapshot, use initial capital vs current
+        const initialCapital = Number(agent.initialCapital);
+        const currentValue = Number(agentSnapshots[0].accountValue);
+        if (initialCapital > 0) {
+          const percentage = ((currentValue - initialCapital) / initialCapital) * 100;
+          percentages.set(agent.name, percentage);
+        }
+      }
+    });
+    
+    return percentages;
+  }, [agents, groupedData, performanceData]);
 
   const datasets = agents.map((agent) => {
     const agentSnapshots = groupedData[agent.id] || [];
     // Sort snapshots by timestamp
     agentSnapshots.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
-    let lastKnownPnL = 0; // Track last known PnL value
+    let lastKnownValue = Number(agent.initialCapital); // Track last known account value
     const data = allTimestamps.map((timestamp) => {
       // Find exact snapshot for this timestamp, or find the most recent one before this timestamp
       const exactSnapshot = agentSnapshots.find(
@@ -154,8 +225,8 @@ export default function Leaderboard() {
       );
       
       if (exactSnapshot) {
-        lastKnownPnL = Number(exactSnapshot.totalPnL);
-        return lastKnownPnL;
+        lastKnownValue = Number(exactSnapshot.accountValue);
+        return lastKnownValue;
       }
       
       // If no exact match, find the most recent snapshot before this timestamp
@@ -166,12 +237,12 @@ export default function Leaderboard() {
       if (previousSnapshots.length > 0) {
         // Use the most recent snapshot before this timestamp
         const lastSnapshot = previousSnapshots[previousSnapshots.length - 1];
-        lastKnownPnL = Number(lastSnapshot.totalPnL);
-        return lastKnownPnL;
+        lastKnownValue = Number(lastSnapshot.accountValue);
+        return lastKnownValue;
       }
       
-      // If no previous snapshot exists, return null (Chart.js will handle it)
-      return null;
+      // If no previous snapshot exists, return initial capital
+      return Number(agent.initialCapital);
     });
 
     // Get specific color for this agent
@@ -182,29 +253,33 @@ export default function Leaderboard() {
       data: data,
       borderColor: colors.border,
       backgroundColor: colors.fill,
-      borderWidth: 4, // Thicker, more visible lines
-      pointRadius: 4, // Visible points always
-      pointHoverRadius: 8, // Larger on hover
+      borderWidth: 2, // Thinner lines like in the image
+      pointRadius: 0, // No visible points
+      pointHoverRadius: 6, // Larger on hover
       pointHoverBorderWidth: 2,
-      pointBackgroundColor: colors.border, // Same color as line
-      pointBorderColor: colors.border, // No black border
-      pointBorderWidth: 0, // No black border
+      pointBackgroundColor: colors.border,
+      pointBorderColor: colors.border,
+      pointBorderWidth: 0,
       tension: 0.4, // Smooth curves
-      fill: true, // Filled area under line
+      fill: false, // No filled area under line
       hitRadius: 30, // Good hover area
-      spanGaps: true, // Connect lines across gaps to prevent sharp drops
+      spanGaps: true, // Connect lines across gaps
       stepped: false,
     };
   });
 
   const chartData = {
-    labels: allTimestamps.map((ts) => new Date(ts).toLocaleTimeString()),
+    labels: allTimestamps.map((ts) => {
+      const date = new Date(ts);
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true });
+    }),
     datasets: datasets,
   };
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    backgroundColor: "#0a1628",
     layout: {
       padding: {
         top: 10,
@@ -228,15 +303,13 @@ export default function Leaderboard() {
           if (index === activeDatasetIndex) {
             // Highlight active line
             dataset.borderColor = colors.border;
-            dataset.backgroundColor = colors.fill.replace("0.15)", "0.3)");
-            dataset.borderWidth = 5;
-            dataset.pointRadius = 8;
+            dataset.borderWidth = 3;
+            dataset.pointRadius = 6;
           } else {
             // Dim inactive lines slightly
-            dataset.borderColor = colors.border.replace("1)", "0.5)");
-            dataset.backgroundColor = colors.fill.replace("0.15)", "0.08)");
-            dataset.borderWidth = 3;
-            dataset.pointRadius = 3; // Still visible but smaller
+            dataset.borderColor = colors.border.replace("1)", "0.4)");
+            dataset.borderWidth = 1.5;
+            dataset.pointRadius = 0;
           }
         });
         
@@ -247,9 +320,8 @@ export default function Leaderboard() {
           const agentName = dataset.label;
           const colors = AGENT_COLOR_MAP[agentName] || DEFAULT_COLOR;
           dataset.borderColor = colors.border;
-          dataset.backgroundColor = colors.fill;
-          dataset.borderWidth = 4;
-          dataset.pointRadius = 4; // Always visible
+          dataset.borderWidth = 2;
+          dataset.pointRadius = 0;
         });
         chart.update('none');
       }
@@ -316,10 +388,8 @@ export default function Leaderboard() {
           label: function (context: any) {
             const agentName = context.dataset.label || "";
             if (context.parsed.y !== null) {
-              const pnl = context.parsed.y;
-              const sign = pnl >= 0 ? "+" : "";
-              const color = pnl >= 0 ? "#00ff88" : "#ff0044";
-              return `${agentName}: ${sign}$${pnl.toFixed(2)}`;
+              const value = context.parsed.y;
+              return `${agentName}: $${value.toFixed(2)}`;
             } else {
               return `${agentName}: No data`;
             }
@@ -338,9 +408,10 @@ export default function Leaderboard() {
     scales: {
       x: {
         grid: {
-          color: "rgba(255, 255, 255, 0.08)",
+          color: "rgba(255, 255, 255, 0.05)",
           lineWidth: 1,
           drawBorder: false,
+          borderDash: [5, 5],
         },
         ticks: {
           color: "rgba(255, 255, 255, 0.6)",
@@ -350,37 +421,37 @@ export default function Leaderboard() {
             family: "Share Tech Mono, monospace",
             size: 10,
           },
-          maxTicksLimit: 8,
+          maxTicksLimit: 12,
         },
         border: {
-          color: "rgba(255, 255, 255, 0.2)",
+          color: "rgba(255, 255, 255, 0.1)",
         },
       },
       y: {
         grid: {
-          color: "rgba(255, 255, 255, 0.1)",
+          color: "rgba(255, 255, 255, 0.05)",
           lineWidth: 1,
-          drawBorder: true,
-          borderColor: "rgba(0, 212, 255, 0.3)",
+          drawBorder: false,
+          borderDash: [5, 5],
         },
         ticks: {
           color: "#FFFFFF",
           callback: function (value: any) {
             const numValue = typeof value === 'number' ? value : parseFloat(value);
             if (isNaN(numValue)) return '';
-            const sign = numValue >= 0 ? "+" : "";
-            return `${sign}$${numValue.toFixed(2)}`;
+            return `$${numValue.toFixed(0)}`;
           },
           font: {
             family: "Share Tech Mono, monospace",
             size: 11,
-            weight: "600" as const,
+            weight: "500" as const,
           },
-          stepSize: 5, // Show ticks every $5
-          precision: 2,
+          precision: 0,
         },
-        beginAtZero: true, // Always start at 0 to show baseline
+        beginAtZero: false, // Don't start at zero, show actual range
         position: "left" as const,
+        suggestedMin: undefined, // Let Chart.js calculate
+        suggestedMax: undefined, // Let Chart.js calculate
       },
     },
   };
@@ -411,12 +482,64 @@ export default function Leaderboard() {
           </h2>
         </div>
         <PriceTracker layout="horizontal" />
-        <Card className="p-6 bg-card border-card-border">
-          <div className="mb-4 text-sm text-white/70 font-mono">
-            Real-time PnL tracking - Each line represents an AI agent's profit/loss over time
+        <Card className="p-6 bg-[#0a1628] border-card-border">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-white/70 font-mono">
+              Account value over time - Each line represents an AI agent's total account value
+            </div>
+            <div className="flex gap-2">
+              {(["1D", "1W", "1M", "3M"] as TimeRange[]).map((range) => (
+                <Button
+                  key={range}
+                  variant={timeRange === range ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeRange(range)}
+                  className="font-mono text-xs h-7 px-3"
+                >
+                  {range}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="h-[700px] w-full" data-testid="chart-performance">
-            <Line data={chartData} options={chartOptions} />
+          <div className="flex gap-4">
+            <div className="flex-1 h-[600px] w-full bg-[#0a1628] rounded" data-testid="chart-performance">
+              <Line data={chartData} options={chartOptions} />
+            </div>
+            <div className="w-48 space-y-3">
+              {agents.map((agent) => {
+                const percentage = currentPercentages.get(agent.name) || 0;
+                const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
+                const isPositive = percentage >= 0;
+                
+                return (
+                  <div
+                    key={agent.id}
+                    className="flex items-center gap-2 p-2 rounded border border-white/10 bg-black/20"
+                  >
+                    <div
+                      className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold"
+                      style={{
+                        backgroundColor: colors.border === "rgba(255, 255, 255, 1)" ? "#000" : colors.border,
+                        color: colors.border === "rgba(255, 255, 255, 1)" ? "#fff" : "#fff",
+                      }}
+                    >
+                      {colors.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-mono text-white/80">{agent.name}</div>
+                      <div
+                        className={`text-sm font-bold font-mono ${
+                          isPositive ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {isPositive ? "+" : ""}
+                        {percentage.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Card>
       </div>
