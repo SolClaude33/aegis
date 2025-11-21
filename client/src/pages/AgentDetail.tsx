@@ -265,10 +265,11 @@ export default function AgentDetail() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={position.side === "LONG" ? "default" : "destructive"}
+                          variant={position.side === "LONG" || position.side === "BUY" ? "default" : "destructive"}
+                          className="font-mono"
                           data-testid={`badge-position-side-${position.id}`}
                         >
-                          {position.side}
+                          {position.side === "BUY" ? "LONG" : position.side === "SELL" ? "SHORT" : position.side}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono" data-testid={`text-position-size-${position.id}`}>

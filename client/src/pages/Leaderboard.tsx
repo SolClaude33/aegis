@@ -466,8 +466,11 @@ export default function Leaderboard() {
                       </TableCell>
                       <TableCell className="font-mono font-bold">{position.asset}</TableCell>
                       <TableCell>
-                        <Badge variant={position.side === "LONG" || position.side === "BUY" ? "default" : "destructive"}>
-                          {position.side}
+                        <Badge 
+                          variant={position.side === "LONG" ? "default" : position.side === "SHORT" ? "destructive" : "outline"}
+                          className="font-mono"
+                        >
+                          {position.side === "BUY" ? "LONG" : position.side === "SELL" ? "SHORT" : position.side}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono">{Number(position.size).toFixed(4)}</TableCell>

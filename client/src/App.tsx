@@ -69,7 +69,7 @@ function App() {
           <div className="scanlines" />
           
           <Layout>
-            <Router />
+              <Router />
           </Layout>
           
           <Toaster />

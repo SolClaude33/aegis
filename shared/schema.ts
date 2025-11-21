@@ -145,6 +145,8 @@ export const asterdexOrders = pgTable("asterdex_orders", {
   strategy: text("strategy"), // LLM-chosen strategy for this order
   llmReasoning: text("llm_reasoning"), // LLM's reasoning
   llmConfidence: decimal("llm_confidence", { precision: 3, scale: 2 }), // LLM confidence
+  action: text("action"), // OPEN or CLOSE (from LLM decision)
+  direction: text("direction"), // LONG or SHORT (for OPEN actions)
   txHash: text("tx_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

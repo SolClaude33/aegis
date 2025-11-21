@@ -540,8 +540,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
   // Only create HTTP server if we're in a traditional server environment
   // For serverless (Vercel), we don't need a server
   if (typeof process.env.VERCEL === 'undefined') {
-    const httpServer = createServer(app);
-    return httpServer;
+  const httpServer = createServer(app);
+  return httpServer;
   }
   
   // Return undefined for serverless

@@ -235,17 +235,17 @@ export class TradingValidator {
     // Only block if trying to buy something that's extremely overbought (unlikely scenario)
     // or sell something extremely oversold (also unlikely)
     if (action === "BUY" && change24h > 50) {
-      return {
-        isValid: false,
+        return {
+          isValid: false,
         reason: `Market appears extremely overbought (+${change24h.toFixed(2)}%), blocking potential bad trade`,
-      };
-    }
+        };
+      }
 
     if (action === "SELL" && change24h < -50) {
-      return {
-        isValid: false,
+        return {
+          isValid: false,
         reason: `Market appears extremely oversold (${change24h.toFixed(2)}%), blocking potential bad trade`,
-      };
+        };
     }
 
     // All other trades are allowed - IAs have freedom to interpret their strategy

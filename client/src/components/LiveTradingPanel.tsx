@@ -8,13 +8,15 @@ interface AsterdexOrder {
   agentId: string;
   asterdexOrderId: string | null;
   symbol: string;
-  side: string;
+  side: string; // BUY or SELL (for AsterDex)
   type: string;
   quantity: string;
   price: string | null;
   status: string;
   filledQuantity: string | null;
   avgFilledPrice: string | null;
+  action: string | null; // OPEN or CLOSE (from LLM decision)
+  direction: string | null; // LONG or SHORT (for OPEN actions)
   createdAt: string;
 }
 
@@ -131,17 +133,43 @@ export default function LiveTradingPanel({ agentId, limit = 10 }: LiveTradingPan
             <div className="flex items-center gap-3">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <Badge
-                    variant={order.side === "BUY" ? "default" : "destructive"}
-                    className="flex items-center gap-1"
-                  >
-                    {order.side === "BUY" ? (
-                      <TrendingUp className="w-3 h-3" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3" />
-                    )}
-                    <span className="font-mono text-xs">{order.side}</span>
-                  </Badge>
+                  {order.action ? (
+                    // Show OPEN/CLOSE with LONG/SHORT if available
+                    <>
+                      <Badge
+                        variant={order.action === "OPEN" ? "default" : "secondary"}
+                        className="flex items-center gap-1"
+                      >
+                        {order.action === "OPEN" ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
+                        <span className="font-mono text-xs">{order.action}</span>
+                      </Badge>
+                      {order.direction && (
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          <span className="font-mono text-xs">{order.direction}</span>
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    // Fallback to BUY/SELL if action is not available (backward compatibility)
+                    <Badge
+                      variant={order.side === "BUY" ? "default" : "destructive"}
+                      className="flex items-center gap-1"
+                    >
+                      {order.side === "BUY" ? (
+                        <TrendingUp className="w-3 h-3" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3" />
+                      )}
+                      <span className="font-mono text-xs">{order.side}</span>
+                    </Badge>
+                  )}
                   <span className="text-sm font-bold text-foreground font-cyber">
                     {order.symbol}
                   </span>

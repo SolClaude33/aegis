@@ -765,17 +765,49 @@ export class TradingEngine {
     const notional = margin * LEVERAGE; // Notional value in AsterDex (e.g., $75)
     let quantity = notional / marketPrice; // Quantity for the notional value
 
-    // For SELL, get actual position size
-    if (decision.action === "SELL") {
+    // Convert LLM decision to AsterDex side (BUY/SELL)
+    let asterdexSide: "BUY" | "SELL";
+    let isOpeningPosition = false;
+
+    if (decision.action === "OPEN") {
+      if (!decision.direction || (decision.direction !== "LONG" && decision.direction !== "SHORT")) {
+        console.log(`⚠️  ${agent.name}: OPEN requires direction (LONG or SHORT)`);
+        return;
+      }
+      // OPEN LONG = BUY, OPEN SHORT = SELL
+      asterdexSide = decision.direction === "LONG" ? "BUY" : "SELL";
+      isOpeningPosition = true;
+    } else if (decision.action === "CLOSE") {
+      // Need to determine if we're closing LONG or SHORT
+      const dbPositions = await db
+        .select()
+        .from(positions)
+        .where(eq(positions.agentId, agent.id))
+        .where(eq(positions.asset, asset));
+      
+      if (dbPositions.length === 0) {
+        console.log(`⚠️  ${agent.name}: Cannot CLOSE - no open position in ${asset}`);
+        return;
+      }
+      
+      const position = dbPositions[0];
+      // Closing LONG = SELL, Closing SHORT = BUY
+      asterdexSide = position.side === "LONG" ? "SELL" : "BUY";
+      isOpeningPosition = false;
+      
+      // For CLOSE, get actual position size
       const currentPositions = await this.loadCurrentPositions(agent.id);
-      const position = currentPositions.get(asset) || 0; // Use normalized symbol (BTC, ETH, BNB)
-      quantity = position; // Sell entire position
+      const positionSize = currentPositions.get(asset) || 0;
+      quantity = positionSize; // Close entire position
+    } else {
+      console.log(`⚠️  ${agent.name}: Invalid action ${decision.action}`);
+      return;
     }
 
-    // For BUY orders, ensure we meet minimum $7 margin requirement
+    // For OPEN orders, ensure we meet minimum $7 margin requirement
     // With 3x leverage, we need: notional >= $7 * 3 = $21
     let normalizedQuantity: number;
-    if (decision.action === "BUY") {
+    if (decision.action === "OPEN") {
       const MIN_MARGIN = 7.0; // Minimum margin required
       const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
       
@@ -825,7 +857,7 @@ export class TradingEngine {
         console.log(`⚙️  Adjusted quantity: ${normalizedQuantity} ${asset} = $${actualNotional.toFixed(2)} notional ($${adjustedMargin.toFixed(2)} margin with ${LEVERAGE}x leverage)`);
       }
     } else {
-      // For SELL, just normalize
+      // For CLOSE, just normalize
       normalizedQuantity = this.normalizePrecision(asterdexSymbol, quantity);
     }
 
@@ -844,13 +876,15 @@ export class TradingEngine {
       .values({
         agentId: agent.id,
         symbol: asterdexSymbol,
-        side: decision.action,
+        side: asterdexSide,
         type: "MARKET",
         quantity: normalizedQuantity.toString(),
         status: "PENDING",
         strategy: decision.strategy,
         llmReasoning: decision.reasoning,
         llmConfidence: decision.confidence.toString(),
+        action: decision.action, // OPEN or CLOSE
+        direction: decision.action === "OPEN" ? decision.direction : null, // LONG or SHORT (only for OPEN)
       })
       .returning();
 
@@ -1124,7 +1158,14 @@ export class TradingEngine {
               const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
                                 accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
               
-              if (usdtAsset && usdtAsset.availableBalance) {
+              // Priority 1: Try to use totalMarginBalance or totalWalletBalance first
+              // These should include margin used in positions, giving us the true total equity
+              if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
+                totalEquity = parseFloat(accountInfo.totalMarginBalance);
+              } else if (accountInfo.totalWalletBalance !== undefined && accountInfo.totalWalletBalance !== null && parseFloat(accountInfo.totalWalletBalance) > 0) {
+                totalEquity = parseFloat(accountInfo.totalWalletBalance);
+              } else if (usdtAsset && usdtAsset.availableBalance) {
+                // Fallback: Calculate from availableBalance + unrealizedPnL
                 // availableBalance is the actual usable balance in AsterDex
                 // It already accounts for locked funds and positions
                 const available = parseFloat(usdtAsset.availableBalance || "0");
@@ -1146,20 +1187,18 @@ export class TradingEngine {
                 // In AsterDex futures:
                 // - If NO open positions: availableBalance IS the total equity (matches UI)
                 // - If HAS open positions: total equity = availableBalance + unrealizedPnL
-                if (hasOpenPositions && Math.abs(unrealizedPnL) > 0.0001) {
-                  // Has open positions: add unrealized PnL to get total equity
+                // IMPORTANT: When you open a position, availableBalance decreases (margin is used),
+                // but the total equity should remain the same (or increase with profit) because
+                // the position value is included. We add unrealizedPnL to get the total equity.
+                if (hasOpenPositions) {
+                  // Always add unrealizedPnL when there are open positions, even if it's 0
+                  // This ensures the total equity includes the position value
                   totalEquity = available + unrealizedPnL;
                 } else {
                   // No open positions: availableBalance is exactly the total equity
                   // This matches "Avbl 20.44 USDT" shown in AsterDex UI
                   totalEquity = available;
                 }
-              } else if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
-                // Fallback: use totalMarginBalance if USDT asset not found
-                totalEquity = parseFloat(accountInfo.totalMarginBalance);
-              } else if (accountInfo.totalWalletBalance !== undefined && accountInfo.totalWalletBalance !== null && parseFloat(accountInfo.totalWalletBalance) > 0) {
-                // Last fallback: use totalWalletBalance (but this might be incorrect)
-                totalEquity = parseFloat(accountInfo.totalWalletBalance);
               }
               
               if (totalEquity > 0) {
@@ -1271,63 +1310,96 @@ export class TradingEngine {
       // Get real balance from AsterDex if available
       if (agentClient) {
         try {
+          // Get full account info which includes total wallet balance (equity)
           const accountInfo = await agentClient.getAccountInfo();
-          const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
-                            accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
           
-          if (usdtAsset && usdtAsset.availableBalance) {
-            const available = parseFloat(usdtAsset.availableBalance || "0");
+          // In AsterDex futures, the USDT availableBalance is inside assets[] array
+          // This is the actual available balance for trading
+          let totalEquity = 0;
+          
+          // Priority 1: Try to use totalMarginBalance or totalWalletBalance first
+          // These should include margin used in positions, giving us the true total equity
+          if (accountInfo.totalMarginBalance !== undefined && accountInfo.totalMarginBalance !== null && parseFloat(accountInfo.totalMarginBalance) > 0) {
+            totalEquity = parseFloat(accountInfo.totalMarginBalance);
+            balanceSource = "asterdex_totalMarginBalance";
+          } else if (accountInfo.totalWalletBalance !== undefined && accountInfo.totalWalletBalance !== null && parseFloat(accountInfo.totalWalletBalance) > 0) {
+            totalEquity = parseFloat(accountInfo.totalWalletBalance);
+            balanceSource = "asterdex_totalWalletBalance";
+          } else {
+            // Fallback: Calculate from availableBalance + unrealizedPnL
+            // Priority 2: Get availableBalance from USDT asset (this is the correct field)
+            // This is the actual available balance shown in AsterDex UI
+            const usdtAsset = accountInfo.assets?.find((b: any) => b.asset === "USDT" || b.asset === "USDC") || 
+                              accountInfo.balances?.find((b: any) => b.asset === "USDT" || b.asset === "USDC");
             
-            // Get open positions and calculate unrealized PnL
-            let hasOpenPositions = false;
-            let unrealizedPnL = 0;
-            try {
-              const positions = await agentClient.getPositions();
-              // Get market data for price calculations
-              const marketData = await this.fetchMarketData();
+            if (usdtAsset && usdtAsset.availableBalance) {
+              // availableBalance is the actual usable balance shown in AsterDex UI
+              // This matches what the user sees: "Avbl 20.44 USDT"
+              const available = parseFloat(usdtAsset.availableBalance || "0");
               
-              for (const pos of positions) {
-                const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
-                if (Math.abs(positionAmt) > 0.000001) {
-                  hasOpenPositions = true;
-                  
-                  // Try to get unrealized PnL from AsterDex first
-                  let posUnrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
-                  
-                  // If AsterDex didn't provide PnL, calculate it manually
-                  if (Math.abs(posUnrealizedPnL) < 0.01) {
-                    const symbol = (pos.symbol?.replace("USDT", "") || "") as SupportedCrypto;
-                    const marketInfo = marketData.find((m) => m.symbol === symbol);
-                    const currentPrice = marketInfo?.currentPrice || parseFloat(pos.markPrice || pos.marketPrice || "0");
-                    const entryPrice = parseFloat(pos.entryPrice || pos.avgPrice || currentPrice.toString());
-                    const leverage = parseFloat(pos.leverage || "3");
+              // Get open positions to check if there are any
+              let hasOpenPositions = false;
+              let unrealizedPnL = 0;
+              try {
+                const positions = await agentClient.getPositions();
+                // Get market data for price calculations
+                const marketData = await this.fetchMarketData();
+                
+                for (const pos of positions) {
+                  const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
+                  if (Math.abs(positionAmt) > 0.000001) {
+                    hasOpenPositions = true;
                     
-                    if (currentPrice > 0 && entryPrice > 0) {
-                      const positionSize = Math.abs(positionAmt);
-                      if (positionAmt > 0) {
-                        // LONG position
-                        posUnrealizedPnL = (currentPrice - entryPrice) * positionSize * leverage;
-                      } else {
-                        // SHORT position
-                        posUnrealizedPnL = (entryPrice - currentPrice) * positionSize * leverage;
+                    // Try to get unrealized PnL from AsterDex first
+                    let posUnrealizedPnL = parseFloat(pos.unrealizedProfit || pos.unrealizedPnL || "0");
+                    
+                    // If AsterDex didn't provide PnL, calculate it manually
+                    if (Math.abs(posUnrealizedPnL) < 0.01) {
+                      const symbol = (pos.symbol?.replace("USDT", "") || "") as SupportedCrypto;
+                      const marketInfo = marketData.find((m) => m.symbol === symbol);
+                      const currentPrice = marketInfo?.currentPrice || parseFloat(pos.markPrice || pos.marketPrice || "0");
+                      const entryPrice = parseFloat(pos.entryPrice || pos.avgPrice || currentPrice.toString());
+                      const leverage = parseFloat(pos.leverage || "3");
+                      
+                      if (currentPrice > 0 && entryPrice > 0) {
+                        const positionSize = Math.abs(positionAmt);
+                        if (positionAmt > 0) {
+                          // LONG position
+                          posUnrealizedPnL = (currentPrice - entryPrice) * positionSize * leverage;
+                        } else {
+                          // SHORT position
+                          posUnrealizedPnL = (entryPrice - currentPrice) * positionSize * leverage;
+                        }
                       }
                     }
+                    
+                    unrealizedPnL += posUnrealizedPnL;
                   }
-                  
-                  unrealizedPnL += posUnrealizedPnL;
                 }
+              } catch {}
+              
+              // In AsterDex futures:
+              // - If NO open positions: availableBalance IS the total equity (matches UI)
+              // - If HAS open positions: total equity = availableBalance + unrealizedPnL
+              // IMPORTANT: When you open a position, availableBalance decreases (margin is used),
+              // but the total equity should remain the same (or increase with profit) because
+              // the position value is included. We add unrealizedPnL to get the total equity.
+              if (hasOpenPositions) {
+                // Always add unrealizedPnL when there are open positions, even if it's 0
+                // This ensures the total equity includes the position value
+                totalEquity = available + unrealizedPnL;
+                balanceSource = "asterdex_with_positions";
+              } else {
+                // No open positions: availableBalance is exactly the total equity
+                // This matches "Avbl 20.44 USDT" shown in AsterDex UI
+                totalEquity = available;
+                balanceSource = "asterdex";
               }
-            } catch {}
-            
-            // Always add unrealized PnL if there are open positions
-            if (hasOpenPositions) {
-              currentBalance = available + unrealizedPnL;
-              balanceSource = "asterdex_with_positions";
-            } else if (available > 0) {
-              currentBalance = available;
-              balanceSource = "asterdex";
             }
-            // Only use AsterDex balance if we got valid data
+          }
+          
+          if (totalEquity > 0) {
+            currentBalance = totalEquity;
           }
         } catch (error) {
           // If API fails, use currentCapital from database (already set above)
