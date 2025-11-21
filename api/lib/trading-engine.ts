@@ -13,9 +13,12 @@ export class TradingEngine {
   private balanceInterval: NodeJS.Timeout | null = null;
   private positionsInterval: NodeJS.Timeout | null = null;
   private priceMonitorInterval: NodeJS.Timeout | null = null;
+  private pnlMonitorInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
   // Store last known prices for BTC, ETH, BNB to detect significant changes
   private lastPrices: Map<string, { price: number; timestamp: number }> = new Map();
+  // Store last known PnL for each position to detect significant changes
+  private lastPositionPnL: Map<string, { pnl: number; pnlPercentage: number; timestamp: number }> = new Map();
 
   constructor() {
     // Clients are now created per-agent on demand
@@ -42,6 +45,10 @@ export class TradingEngine {
     // Start price monitoring for significant changes (every 5 minutes)
     this.monitorPriceChanges();
     this.priceMonitorInterval = setInterval(() => this.monitorPriceChanges(), 5 * 60 * 1000);
+    
+    // Start PnL monitoring for significant changes (every 2 minutes)
+    this.monitorPositionPnLChanges();
+    this.pnlMonitorInterval = setInterval(() => this.monitorPositionPnLChanges(), 2 * 60 * 1000);
     
     // Trading cycles are controlled by resume/pause
     // Don't start trading automatically - user must call resume
@@ -96,6 +103,12 @@ export class TradingEngine {
     if (this.priceMonitorInterval) {
       clearInterval(this.priceMonitorInterval);
       this.priceMonitorInterval = null;
+    }
+
+    // Clear PnL monitor interval
+    if (this.pnlMonitorInterval) {
+      clearInterval(this.pnlMonitorInterval);
+      this.pnlMonitorInterval = null;
     }
 
     // Close all open positions if requested

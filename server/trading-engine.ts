@@ -13,9 +13,12 @@ export class TradingEngine {
   private balanceInterval: NodeJS.Timeout | null = null;
   private positionsInterval: NodeJS.Timeout | null = null;
   private priceMonitorInterval: NodeJS.Timeout | null = null;
+  private pnlMonitorInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
   // Store last known prices for BTC, ETH, BNB to detect significant changes
   private lastPrices: Map<string, { price: number; timestamp: number }> = new Map();
+  // Store last known PnL for each position to detect significant changes
+  private lastPositionPnL: Map<string, { pnl: number; pnlPercentage: number; timestamp: number }> = new Map();
 
   constructor() {
     // Clients are now created per-agent on demand
@@ -42,6 +45,10 @@ export class TradingEngine {
     // Start price monitoring for significant changes (every 5 minutes)
     this.monitorPriceChanges();
     this.priceMonitorInterval = setInterval(() => this.monitorPriceChanges(), 5 * 60 * 1000);
+    
+    // Start PnL monitoring for significant changes (every 2 minutes)
+    this.monitorPositionPnLChanges();
+    this.pnlMonitorInterval = setInterval(() => this.monitorPositionPnLChanges(), 2 * 60 * 1000);
     
     // Trading cycles are controlled by resume/pause
     // Don't start trading automatically - user must call resume
@@ -100,6 +107,13 @@ export class TradingEngine {
       clearInterval(this.priceMonitorInterval);
       this.priceMonitorInterval = null;
       console.log("🛑 Price monitor interval cleared");
+    }
+
+    // Clear PnL monitor interval
+    if (this.pnlMonitorInterval) {
+      clearInterval(this.pnlMonitorInterval);
+      this.pnlMonitorInterval = null;
+      console.log("🛑 PnL monitor interval cleared");
     }
 
     // Close all open positions if requested
@@ -448,6 +462,70 @@ export class TradingEngine {
       }
     } catch (error) {
       console.error("Error monitoring price changes:", error);
+    }
+  }
+
+  /**
+   * Monitor PnL changes for all open positions
+   * If significant change detected (>=20% in PnL percentage), trigger additional trading cycle
+   */
+  private async monitorPositionPnLChanges() {
+    if (this.isPaused) {
+      return; // Don't monitor if trading is paused
+    }
+
+    try {
+      // Get all open positions from database
+      const allPositions = await db.select().from(positions);
+
+      if (allPositions.length === 0) {
+        return; // No positions to monitor
+      }
+
+      const SIGNIFICANT_PNL_CHANGE_THRESHOLD = 20.0; // 20% change threshold
+      let significantChangeDetected = false;
+
+      for (const position of allPositions) {
+        const positionId = position.id;
+        const currentPnL = Number(position.unrealizedPnL);
+        const currentPnLPercentage = Number(position.unrealizedPnLPercentage);
+        const lastPnLData = this.lastPositionPnL.get(positionId);
+
+        if (lastPnLData) {
+          // Calculate change in PnL percentage
+          const pnlPercentageChange = Math.abs(currentPnLPercentage - lastPnLData.pnlPercentage);
+          const timeSinceLastCheck = Date.now() - lastPnLData.timestamp;
+
+          // Check if change is significant (>=20%) and happened within last 10 minutes
+          // This ensures we catch changes that occur between regular trading cycles
+          if (pnlPercentageChange >= SIGNIFICANT_PNL_CHANGE_THRESHOLD && timeSinceLastCheck <= 10 * 60 * 1000) {
+            const agent = await db.select().from(agents).where(eq(agents.id, position.agentId)).limit(1);
+            const agentName = agent[0]?.name || position.agentId;
+            
+            console.log(`📊 Significant PnL change detected for position ${positionId} (${agentName}):`);
+            console.log(`   Asset: ${position.asset}, Side: ${position.side}`);
+            console.log(`   PnL change: ${lastPnLData.pnlPercentage.toFixed(2)}% -> ${currentPnLPercentage.toFixed(2)}% (${pnlPercentageChange.toFixed(2)}% change)`);
+            console.log(`   PnL amount: $${lastPnLData.pnl.toFixed(2)} -> $${currentPnL.toFixed(2)}`);
+            
+            significantChangeDetected = true;
+          }
+        }
+
+        // Update last known PnL
+        this.lastPositionPnL.set(positionId, {
+          pnl: currentPnL,
+          pnlPercentage: currentPnLPercentage,
+          timestamp: Date.now(),
+        });
+      }
+
+      // If significant change detected, trigger additional trading cycle
+      if (significantChangeDetected) {
+        console.log("⚡ Triggering additional trading cycle due to significant PnL changes in positions...");
+        await this.runTradingCycle();
+      }
+    } catch (error) {
+      console.error("Error monitoring position PnL changes:", error);
     }
   }
 
