@@ -555,11 +555,14 @@ export class TradingEngine {
           if (bbSeries) {
             const latestTime = Object.keys(bbSeries).sort().reverse()[0];
             const bbEntry = bbSeries[latestTime];
-            if (bbEntry) {
+            if (bbEntry && typeof bbEntry === 'object') {
+              const upperBand = bbEntry["Real Upper Band"];
+              const middleBand = bbEntry["Real Middle Band"];
+              const lowerBand = bbEntry["Real Lower Band"];
               indicators.bollingerBands = {
-                upper: parseFloat(bbEntry["Real Upper Band"]) || 0,
-                middle: parseFloat(bbEntry["Real Middle Band"]) || 0,
-                lower: parseFloat(bbEntry["Real Lower Band"]) || 0,
+                upper: parseFloat(String(upperBand || 0)) || 0,
+                middle: parseFloat(String(middleBand || 0)) || 0,
+                lower: parseFloat(String(lowerBand || 0)) || 0,
               };
             }
           }
