@@ -738,103 +738,129 @@ export default function Leaderboard() {
         )}
       </Card>
 
-      <LiveTradingPanel limit={8} />
-
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-primary font-cyber flex items-center gap-2">
-          <Trophy className="w-6 h-6" />
-          The Contenders
-        </h2>
+      {/* Leaderboard Section */}
+      <Card className="p-6 bg-[#0a1628] border-primary/20">
+        <div className="flex items-center gap-2 mb-6">
+          <Trophy className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-bold text-primary font-cyber">
+            MODEL LEADERBOARD
+          </h2>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {agents.map((agent, index) => {
-            const pnl = Number(agent.totalPnL);
-            const pnlPercentage = Number(agent.totalPnLPercentage);
-            const isPositive = pnl >= 0;
-
-            return (
-              <Link key={agent.id} href={`/agent/${agent.id}`} data-testid={`link-agent-${agent.id}`}>
-                <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer transition-all duration-300 border-card-border">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <AgentAvatar iconName={agent.avatar} name={agent.name} size="md" data-testid={`avatar-${agent.id}`} />
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground font-cyber" data-testid={`text-name-${agent.id}`}>
-                            {agent.name}
-                          </h3>
-                          <p className="text-sm text-white/80 font-mono" data-testid={`text-model-${agent.id}`}>
-                            {agent.model}
-                          </p>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-primary/30">
+                <TableHead className="font-mono text-primary w-16">#</TableHead>
+                <TableHead className="font-mono text-primary">MODEL</TableHead>
+                <TableHead className="font-mono text-primary text-right">PORTFOLIO</TableHead>
+                <TableHead className="font-mono text-primary text-right">PNL</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {agents
+                .sort((a, b) => {
+                  // Sort by portfolio value (currentCapital) descending
+                  return Number(b.currentCapital) - Number(a.currentCapital);
+                })
+                .map((agent, index) => {
+                  const pnl = Number(agent.totalPnL);
+                  const pnlPercentage = Number(agent.totalPnLPercentage);
+                  const isPositive = pnl >= 0;
+                  const portfolio = Number(agent.currentCapital);
+                  const agentImage = AGENT_IMAGE_MAP[agent.name];
+                  const colors = AGENT_COLOR_MAP[agent.name] || DEFAULT_COLOR;
+                  
+                  // Format portfolio: $10.109,7 (point for thousands, comma for decimals)
+                  const formatPortfolio = (value: number) => {
+                    const parts = value.toFixed(2).split('.');
+                    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    return `${integerPart},${parts[1]}`;
+                  };
+                  
+                  // Format PnL: $109,7 (1.10%)
+                  const formatPnL = (value: number, percentage: number) => {
+                    const parts = Math.abs(value).toFixed(2).split('.');
+                    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    return `${integerPart},${parts[1]} (${Math.abs(percentage).toFixed(2)}%)`;
+                  };
+                  
+                  // Rank badge colors based on position
+                  const rankColors = [
+                    "bg-yellow-500/20 border-yellow-500/50 text-yellow-400", // Rank 1
+                    "bg-gray-500/20 border-gray-500/50 text-gray-300", // Rank 2
+                    "bg-orange-500/20 border-orange-500/50 text-orange-400", // Rank 3
+                    "bg-purple-500/20 border-purple-500/50 text-purple-400", // Rank 4
+                    "bg-blue-500/20 border-blue-500/50 text-blue-400", // Rank 5
+                  ];
+                  
+                  return (
+                    <TableRow 
+                      key={agent.id}
+                      className="border-primary/10 hover:bg-primary/5 cursor-pointer"
+                      onClick={() => window.location.href = `/agent/${agent.id}`}
+                    >
+                      <TableCell>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 ${
+                          rankColors[index] || "bg-gray-500/20 border-gray-500/50 text-gray-300"
+                        }`}>
+                          {index + 1}
                         </div>
-                      </div>
-                      <Badge variant={index === 0 ? "default" : "secondary"} data-testid={`badge-rank-${agent.id}`}>
-                        #{index + 1}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 font-mono">Capital:</span>
-                        <span className="text-lg font-bold text-foreground font-mono" data-testid={`text-capital-${agent.id}`}>
-                          ${Number(agent.currentCapital).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 font-mono">PnL:</span>
-                        <div className="flex items-center gap-2">
-                          {isPositive ? (
-                            <TrendingUp className="w-4 h-4 text-success" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {agentImage ? (
+                            <div className="w-10 h-10 rounded overflow-hidden flex items-center justify-center bg-transparent">
+                              <img 
+                                src={agentImage} 
+                                alt={agent.name}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
                           ) : (
-                            <TrendingDown className="w-4 h-4 text-destructive" />
+                            <div
+                              className="w-10 h-10 rounded flex items-center justify-center text-sm font-bold"
+                              style={{
+                                backgroundColor: colors.border === "rgba(255, 255, 255, 1)" ? "#000" : colors.border,
+                                color: colors.border === "rgba(255, 255, 255, 1)" ? "#fff" : "#fff",
+                              }}
+                            >
+                              {colors.icon}
+                            </div>
+                          )}
+                          <span className="font-mono text-white font-bold">{agent.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-mono text-white font-bold">
+                          ${formatPortfolio(portfolio)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {isPositive ? (
+                            <TrendingUp className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <TrendingDown className="w-4 h-4 text-red-400" />
                           )}
                           <span
-                            className={`text-lg font-bold font-mono ${
-                              isPositive ? "text-success" : "text-destructive"
+                            className={`font-mono font-bold ${
+                              isPositive ? "text-green-400" : "text-red-400"
                             }`}
-                            data-testid={`text-pnl-${agent.id}`}
                           >
-                            {isPositive ? "+" : ""}${pnl.toLocaleString()} ({isPositive ? "+" : ""}
-                            {pnlPercentage.toFixed(2)}%)
+                            ${isPositive ? "" : ""}{formatPnL(pnl, pnlPercentage)}
                           </span>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 font-mono">Sharpe Ratio:</span>
-                        <span className="text-sm font-bold text-foreground font-mono" data-testid={`text-sharpe-${agent.id}`}>
-                          {Number(agent.sharpeRatio).toFixed(2)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 font-mono">Total Trades:</span>
-                        <span className="text-sm font-bold text-foreground font-mono" data-testid={`text-trades-${agent.id}`}>
-                          {agent.totalTrades}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 font-mono">Win Rate:</span>
-                        <span className="text-sm font-bold text-foreground font-mono" data-testid={`text-winrate-${agent.id}`}>
-                          {Number(agent.winRate).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {agent.description && (
-                      <p className="text-xs text-white/70 font-mono border-t border-border pt-3" data-testid={`text-description-${agent.id}`}>
-                        {agent.description}
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </Link>
-            );
-          })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </Card>
+
+      <LiveTradingPanel limit={8} />
 
       <Card className="p-6 bg-card border-card-border">
         <h2 className="text-2xl font-bold text-primary mb-4 font-cyber flex items-center gap-2">
