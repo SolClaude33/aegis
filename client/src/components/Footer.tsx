@@ -69,20 +69,7 @@ export default function Footer() {
             </a>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-              <span>CA: {CONTRACT_ADDRESS}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopyCA}
-                className="h-6 w-6 p-0 hover:bg-primary/20"
-                title="Copy contract address"
-              >
-                {copied ? (
-                  <Check className="w-3 h-3 text-primary" />
-                ) : (
-                  <Copy className="w-3 h-3" />
-                )}
-              </Button>
+              <span>CA: SOON</span>
             </div>
           </div>
 

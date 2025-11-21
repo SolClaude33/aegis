@@ -12,7 +12,10 @@ export class TradingEngine {
   private tradingInterval: NodeJS.Timeout | null = null;
   private balanceInterval: NodeJS.Timeout | null = null;
   private positionsInterval: NodeJS.Timeout | null = null;
+  private priceMonitorInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
+  // Store last known prices for BTC, ETH, BNB to detect significant changes
+  private lastPrices: Map<string, { price: number; timestamp: number }> = new Map();
 
   constructor() {
     // Clients are now created per-agent on demand
@@ -35,6 +38,10 @@ export class TradingEngine {
     // Start positions sync immediately and every 30 seconds
     this.syncAllPositions();
     this.positionsInterval = setInterval(() => this.syncAllPositions(), 30 * 1000);
+    
+    // Start price monitoring for significant changes (every 5 minutes)
+    this.monitorPriceChanges();
+    this.priceMonitorInterval = setInterval(() => this.monitorPriceChanges(), 5 * 60 * 1000);
     
     // Trading cycles are controlled by resume/pause
     // Don't start trading automatically - user must call resume
@@ -64,8 +71,8 @@ export class TradingEngine {
       console.log("✅ First trading cycle complete - IAs are now trading!");
     }, 1000);
 
-    // Run trading cycle every 2 minutes
-    this.tradingInterval = setInterval(() => this.runTradingCycle(), 2 * 60 * 1000);
+    // Run trading cycle every 10 minutes
+    this.tradingInterval = setInterval(() => this.runTradingCycle(), 10 * 60 * 1000);
 
     return { success: true, message: "Trading resumed" };
   }
@@ -83,6 +90,12 @@ export class TradingEngine {
     if (this.tradingInterval) {
       clearInterval(this.tradingInterval);
       this.tradingInterval = null;
+    }
+
+    // Clear price monitor interval
+    if (this.priceMonitorInterval) {
+      clearInterval(this.priceMonitorInterval);
+      this.priceMonitorInterval = null;
     }
 
     // Close all open positions if requested
@@ -363,6 +376,59 @@ export class TradingEngine {
     }
 
     return marketData;
+  }
+
+  /**
+   * Monitor price changes for BTC, ETH, BNB
+   * If significant change detected (>2% in 5 minutes), trigger additional trading cycle
+   */
+  private async monitorPriceChanges() {
+    if (this.isPaused) {
+      return; // Don't monitor if trading is paused
+    }
+
+    try {
+      // Fetch current prices
+      const allAgents = await db.select().from(agents).where(eq(agents.isActive, true));
+      if (allAgents.length === 0) return;
+
+      const firstClient = this.getAgentClient(allAgents[0]);
+      const marketData = await this.fetchMarketData(firstClient);
+
+      const SIGNIFICANT_CHANGE_THRESHOLD = 2.0; // 2% change threshold
+      let significantChangeDetected = false;
+
+      for (const data of marketData) {
+        const symbol = data.symbol;
+        const currentPrice = data.currentPrice;
+        const lastPriceData = this.lastPrices.get(symbol);
+
+        if (lastPriceData) {
+          const priceChange = Math.abs((currentPrice - lastPriceData.price) / lastPriceData.price) * 100;
+          const timeSinceLastCheck = Date.now() - lastPriceData.timestamp;
+
+          // Check if change is significant (>2%) and happened within last 5 minutes
+          if (priceChange > SIGNIFICANT_CHANGE_THRESHOLD && timeSinceLastCheck <= 5 * 60 * 1000) {
+            console.log(`📊 Significant price change detected for ${symbol}: ${priceChange.toFixed(2)}% (${lastPriceData.price.toFixed(2)} -> ${currentPrice.toFixed(2)})`);
+            significantChangeDetected = true;
+          }
+        }
+
+        // Update last known price
+        this.lastPrices.set(symbol, {
+          price: currentPrice,
+          timestamp: Date.now(),
+        });
+      }
+
+      // If significant change detected, trigger additional trading cycle
+      if (significantChangeDetected) {
+        console.log("⚡ Triggering additional trading cycle due to significant price changes...");
+        await this.runTradingCycle();
+      }
+    } catch (error) {
+      console.error("Error monitoring price changes:", error);
+    }
   }
 
   private async loadCurrentPositions(agentId: string): Promise<Map<string, number>> {
