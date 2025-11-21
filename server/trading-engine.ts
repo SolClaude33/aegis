@@ -72,30 +72,40 @@ export class TradingEngine {
 
   async pause(closePositions: boolean = false) {
     if (this.isPaused) {
-      console.log("Trading is already paused");
+      console.log("⏸️  Trading is already paused");
       return { success: true, message: "Trading is already paused" };
     }
 
+    console.log(`⏸️  Pausing trading${closePositions ? " and closing all positions" : ""}...`);
+    
+    // Set paused flag FIRST to prevent new trades
     this.isPaused = true;
-    console.log("⏸️  Trading PAUSED - No new trades will be executed");
-
-    // Clear trading interval
+    
+    // Clear trading interval immediately
     if (this.tradingInterval) {
       clearInterval(this.tradingInterval);
       this.tradingInterval = null;
+      console.log("🛑 Trading interval cleared");
     }
 
     // Close all open positions if requested
     if (closePositions) {
       console.log("🔄 Closing all open positions...");
-      await this.closeAllPositions();
+      const result = await this.closeAllPositions();
+      console.log(`✅ Position closure result: ${result.closed} closed, ${result.errors} errors`);
+      
+      return { 
+        success: true, 
+        message: `Trading paused. Closed ${result.closed} positions, ${result.errors} errors`,
+        closed: result.closed,
+        errors: result.errors,
+      };
     }
 
+    console.log("⏸️  Trading PAUSED - No new trades will be executed");
     return { 
       success: true, 
-      message: closePositions 
-        ? "Trading paused and all positions closed" 
-        : "Trading paused" 
+      message: "Trading paused" 
     };
   }
 
@@ -173,12 +183,22 @@ export class TradingEngine {
                 continue;
               }
 
-              await agentClient.createOrder({
+              const orderResult = await agentClient.createOrder({
                 symbol,
                 side,
                 type: "MARKET",
                 quantity: normalizedQuantity,
               });
+
+              console.log(`📝 ${agent.name}: Order created for ${symbol}:`, {
+                side,
+                quantity: normalizedQuantity,
+                orderId: orderResult?.orderId || orderResult?.id,
+                status: orderResult?.status,
+              });
+
+              // Wait a bit for the order to fill (market orders should fill quickly)
+              await new Promise(resolve => setTimeout(resolve, 1000));
 
               // Log activity
               await db.insert(activityEvents).values({
@@ -679,6 +699,7 @@ export class TradingEngine {
           asset: p.asset,
           size: p.size,
           entryPrice: p.entryPrice,
+          side: p.side, // Include side for validation
         })),
         marketData,
         recentTrades,

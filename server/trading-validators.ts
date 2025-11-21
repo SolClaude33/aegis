@@ -7,6 +7,7 @@ export interface ValidationContext {
     asset: string;
     size: number;
     entryPrice: number;
+    side?: "LONG" | "SHORT"; // Direction of the position
   }[];
   marketData: MarketData[];
   recentTrades: number; // Number of trades in current cycle
@@ -96,14 +97,15 @@ export class TradingValidator {
       return { isValid: false, reason: "OPEN decision must specify direction: LONG or SHORT" };
     }
 
-    // Check if already has position in this asset
+    // Check if already has position in this asset with the SAME direction
+    // Allow opening LONG if there's a SHORT (and vice versa) - they're opposite positions
     const existingPosition = context.openPositions.find(
-      (p) => p.asset === decision.asset
+      (p) => p.asset === decision.asset && p.side === decision.direction
     );
     if (existingPosition) {
       return {
         isValid: false,
-        reason: `Already have open position in ${decision.asset}`,
+        reason: `Already have open ${decision.direction} position in ${decision.asset}`,
       };
     }
 
