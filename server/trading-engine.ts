@@ -711,6 +711,13 @@ export class TradingEngine {
         console.log(`⚙️  Decision adjusted by validator`);
       }
 
+      console.log(`🔍 [${agent.name}] Before executeLLMTrade - finalDecision:`, {
+        action: finalDecision.action,
+        direction: finalDecision.direction,
+        asset: finalDecision.asset,
+        actionType: typeof finalDecision.action,
+      });
+
       // Execute the validated trade
       await this.executeLLMTrade(agent, finalDecision, marketData);
     } catch (error) {
@@ -753,10 +760,38 @@ export class TradingEngine {
     let quantity = notional / marketPrice; // Quantity for the notional value
 
     // Convert LLM decision to AsterDex side (BUY/SELL)
+    // Accept both "OPEN"/"CLOSE" and "OPEN_POSITION"/"CLOSE_POSITION"
+    // Normalize action to handle any string variations
+    const normalizedAction = String(decision.action || "").trim();
+    
+    console.log(`🔍 [${agent.name}] executeLLMTrade - decision.action:`, {
+      raw: decision.action,
+      normalized: normalizedAction,
+      type: typeof decision.action,
+    });
+    
+    const isOpenAction = 
+      normalizedAction === "OPEN" || 
+      normalizedAction === "OPEN_POSITION" ||
+      normalizedAction.toUpperCase() === "OPEN" ||
+      normalizedAction.toUpperCase() === "OPEN_POSITION";
+      
+    const isCloseAction = 
+      normalizedAction === "CLOSE" || 
+      normalizedAction === "CLOSE_POSITION" ||
+      normalizedAction.toUpperCase() === "CLOSE" ||
+      normalizedAction.toUpperCase() === "CLOSE_POSITION";
+    
+    console.log(`🔍 [${agent.name}] Action checks:`, {
+      isOpenAction,
+      isCloseAction,
+      normalizedAction,
+    });
+    
     let asterdexSide: "BUY" | "SELL";
     let isOpeningPosition = false;
 
-    if (decision.action === "OPEN") {
+    if (isOpenAction) {
       if (!decision.direction || (decision.direction !== "LONG" && decision.direction !== "SHORT")) {
         console.log(`⚠️  ${agent.name}: OPEN requires direction (LONG or SHORT)`);
         return;
@@ -764,7 +799,7 @@ export class TradingEngine {
       // OPEN LONG = BUY, OPEN SHORT = SELL
       asterdexSide = decision.direction === "LONG" ? "BUY" : "SELL";
       isOpeningPosition = true;
-    } else if (decision.action === "CLOSE") {
+    } else if (isCloseAction) {
       // Need to determine if we're closing LONG or SHORT
       const dbPositions = await db
         .select()
@@ -794,7 +829,7 @@ export class TradingEngine {
     // For OPEN orders, ensure we meet minimum $7 margin requirement
     // With 3x leverage, we need: notional >= $7 * 3 = $21
     let normalizedQuantity: number;
-    if (decision.action === "OPEN") {
+    if (isOpenAction) {
       const MIN_MARGIN = 7.0; // Minimum margin required
       const MIN_NOTIONAL = MIN_MARGIN * LEVERAGE; // Minimum notional with 3x leverage ($21)
       
@@ -871,7 +906,7 @@ export class TradingEngine {
           llmReasoning: decision.reasoning,
           llmConfidence: decision.confidence.toString(),
           action: decision.action, // OPEN or CLOSE
-          direction: decision.action === "OPEN" ? decision.direction : null, // LONG or SHORT (only for OPEN)
+          direction: isOpenAction ? decision.direction : null, // LONG or SHORT (only for OPEN)
         })
         .returning();
 
@@ -930,9 +965,9 @@ export class TradingEngine {
         .where(eq(asterdexOrders.id, order.id));
 
       // Log activity with strategy info
-      const actionDesc = decision.action === "OPEN" 
+      const actionDesc = isOpenAction
         ? `OPEN ${decision.direction}` 
-        : decision.action === "CLOSE" 
+        : isCloseAction
         ? "CLOSE" 
         : decision.action;
       await db.insert(activityEvents).values({
