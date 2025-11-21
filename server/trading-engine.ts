@@ -557,9 +557,9 @@ export class TradingEngine {
             const bbEntry = bbSeries[latestTime];
             if (bbEntry) {
               indicators.bollingerBands = {
-                upper: parseFloat(bbEntry.Real Upper Band) || 0,
-                middle: parseFloat(bbEntry.Real Middle Band) || 0,
-                lower: parseFloat(bbEntry.Real Lower Band) || 0,
+                upper: parseFloat(bbEntry["Real Upper Band"]) || 0,
+                middle: parseFloat(bbEntry["Real Middle Band"]) || 0,
+                lower: parseFloat(bbEntry["Real Lower Band"]) || 0,
               };
             }
           }
