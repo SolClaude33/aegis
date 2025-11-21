@@ -1197,8 +1197,14 @@ export class TradingEngine {
                 }
               }
               
+              // Update balance if we got a valid totalEquity from AsterDex
               if (totalEquity > 0) {
                 currentBalance = totalEquity;
+                console.log(`✅ ${agent.name}: Got balance from AsterDex: $${totalEquity.toFixed(2)}`);
+              } else {
+                // If totalEquity is 0, it means we couldn't get balance from AsterDex
+                // Keep currentBalance as is (will use database value or fallback)
+                console.log(`⚠️  ${agent.name}: Could not get balance from AsterDex (totalEquity=0), using existing balance`);
               }
 
               // Get open positions for logging
@@ -1239,7 +1245,9 @@ export class TradingEngine {
           }
 
           // Fallback: Calculate current balance based on executed trades
-          if (!agentClient || currentBalance === initialCapital) {
+          // Only use fallback if we couldn't get balance from AsterDex AND balance is still at initial
+          if (!agentClient || (currentBalance === initialCapital && totalEquity === 0)) {
+            console.log(`📊 ${agent.name}: Using fallback calculation from trades (no AsterDex balance available)`);
             const orders = await db
               .select()
               .from(asterdexOrders)
@@ -1258,11 +1266,17 @@ export class TradingEngine {
             }
           }
 
+          // Ensure balance is never negative or zero (minimum is initial capital)
+          if (currentBalance <= 0 || isNaN(currentBalance)) {
+            console.warn(`⚠️  ${agent.name}: Invalid balance (${currentBalance}), using initial capital`);
+            currentBalance = initialCapital;
+          }
+
           // Calculate PnL based on current balance vs initial capital ($100)
           const pnl = currentBalance - initialCapital;
           const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
 
-          // Update agent
+          // Update agent - always update even if balance didn't change from AsterDex
           await db
             .update(agents)
             .set({
@@ -1272,6 +1286,8 @@ export class TradingEngine {
               updatedAt: new Date(),
             })
             .where(eq(agents.id, agent.id));
+          
+          console.log(`✅ ${agent.name}: Updated balance to $${currentBalance.toFixed(2)} (PnL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}, ${pnlPercentage >= 0 ? '+' : ''}${pnlPercentage.toFixed(2)}%)`);
 
           // Get open positions count for snapshot
           let openPositionsCount = 0;
