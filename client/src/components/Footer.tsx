@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Footer() {
   const TWITTER_URL = "https://x.com/AegisArenaCoin";
   const GITHUB_URL = "https://github.com/AegisArena/aegis-main";
-  const CONTRACT_ADDRESS = "0x3358e447731eb82c318c8924d73776aaa79c4444";
+  const CONTRACT_ADDRESS = "AqR7Z6a2fGPG7NoXn3sTeBQicJG3JoF5xrUCnm2fpump";
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -68,9 +68,13 @@ export default function Footer() {
               <ExternalLink className="w-3 h-3" />
             </a>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-              <span>CA: SOON</span>
-            </div>
+            <button
+              onClick={handleCopyCA}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-mono cursor-pointer"
+            >
+              <span>CA: {CONTRACT_ADDRESS.slice(0, 8)}...{CONTRACT_ADDRESS.slice(-8)}</span>
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </button>
           </div>
 
           {/* Right side - Copyright */}
