@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
-  const TWITTER_URL = "https://x.com/aegisarena";
+  const TWITTER_URL = "https://x.com/AegisArenaCoin";
   const GITHUB_URL = "https://github.com/AegisArena/aegis-main";
   const CONTRACT_ADDRESS = "0x3358e447731eb82c318c8924d73776aaa79c4444";
   const { toast } = useToast();
