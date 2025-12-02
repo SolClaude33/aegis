@@ -234,6 +234,7 @@ export async function getMarketPrices(): Promise<MarketTicker[]> {
       { symbol: 'BTC/USD', price: 114082, change: 3.55 },
       { symbol: 'ETH/USD', price: 4112.48, change: 2.44 },
       { symbol: 'BNB/USD', price: 600, change: 1.5 },
+      { symbol: 'ASTER/USD', price: 0.01, change: 0.0 },
     ];
   }
 }

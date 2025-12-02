@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { MarketData } from "./trading-strategies.js";
 
 // Supported cryptocurrencies
-export const SUPPORTED_CRYPTOS = ["BTC", "ETH", "BNB"] as const;
+export const SUPPORTED_CRYPTOS = ["BTC", "ETH", "BNB", "ASTER"] as const;
 export type SupportedCrypto = typeof SUPPORTED_CRYPTOS[number];
 
 // Available trading strategies

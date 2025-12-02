@@ -15,6 +15,7 @@ const TRACKED_SYMBOLS = [
   { symbol: "BTC", name: "Bitcoin" },
   { symbol: "ETH", name: "Ethereum" },
   { symbol: "BNB", name: "BNB Chain" },
+  { symbol: "ASTER", name: "ASTER" },
 ];
 
 interface PriceTrackerProps {

@@ -445,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
   // Crypto Prices endpoint
   app.get('/api/crypto/prices', async (req, res) => {
     try {
-      const symbols = ['BTC', 'ETH', 'BNB'];
+      const symbols = ['BTC', 'ETH', 'BNB', 'ASTER'];
       const fsyms = symbols.join(',');
       
       // Fallback prices (approximate current values as of 2024)
@@ -453,6 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
         'BTC': { price: 114082, change24h: 3.55 },
         'ETH': { price: 4112.48, change24h: 2.44 },
         'BNB': { price: 600, change24h: 1.5 },
+        'ASTER': { price: 0.01, change24h: 0.0 }, // Placeholder - will be updated with real price
       };
       
       try {
@@ -488,7 +489,8 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
             symbol,
             name: symbol === 'BTC' ? 'Bitcoin' :
                   symbol === 'ETH' ? 'Ethereum' :
-                  symbol === 'BNB' ? 'BNB Chain' : symbol,
+                  symbol === 'BNB' ? 'BNB Chain' :
+                  symbol === 'ASTER' ? 'ASTER' : symbol,
             price,
             change24h,
             marketCap: raw?.MKTCAP || 0,
@@ -517,8 +519,9 @@ export async function registerRoutes(app: Express): Promise<Server | void> {
         'BTC': { price: 114082, change24h: 3.55 },
         'ETH': { price: 4112.48, change24h: 2.44 },
         'BNB': { price: 600, change24h: 1.5 },
+        'ASTER': { price: 0.01, change24h: 0.0 },
       };
-      const fallback = ['BTC', 'ETH', 'BNB'].map(symbol => ({
+      const fallback = ['BTC', 'ETH', 'BNB', 'ASTER'].map(symbol => ({
         symbol,
         name: symbol === 'BTC' ? 'Bitcoin' :
               symbol === 'ETH' ? 'Ethereum' :

@@ -355,6 +355,7 @@ export class TradingEngine {
       BTC: "BTCUSDT",
       ETH: "ETHUSDT",
       BNB: "BNBUSDT",
+      ASTER: "ASTERUSDT",
     };
 
     const marketData: (MarketData & { symbol: SupportedCrypto })[] = [];
@@ -625,7 +626,7 @@ export class TradingEngine {
     const marketData: (MarketData & { symbol: SupportedCrypto })[] = [];
     
     try {
-      const symbols = ['BTC', 'ETH', 'BNB'];
+      const symbols = ['BTC', 'ETH', 'BNB', 'ASTER'];
       const fsyms = symbols.join(',');
       
       const response = await fetch(
@@ -1072,7 +1073,7 @@ export class TradingEngine {
           // Normalize symbols from orders and find the one matching our asset
           let recentOrder: any[] = [];
           for (const order of allRecentOrders) {
-            // Normalize order symbol: BTCUSDT → BTC, ETHUSDT → ETH, BNBUSDT → BNB
+            // Normalize order symbol: BTCUSDT → BTC, ETHUSDT → ETH, BNBUSDT → BNB, ASTERUSDT → ASTER
             const orderSymbolNormalized = (order.symbol || "")
               .toUpperCase()
               .replace("USDT", "")
@@ -1391,11 +1392,12 @@ export class TradingEngine {
     const asset = decision.asset;
     if (!asset) return;
 
-    // Map normalized symbol (BTC, ETH, BNB) to AsterDex symbol (BTCUSDT, ETHUSDT, BNBUSDT)
+    // Map normalized symbol (BTC, ETH, BNB, ASTER) to AsterDex symbol (BTCUSDT, ETHUSDT, BNBUSDT, ASTERUSDT)
     const symbolMap: Record<SupportedCrypto, string> = {
       BTC: "BTCUSDT",
       ETH: "ETHUSDT",
       BNB: "BNBUSDT",
+      ASTER: "ASTERUSDT",
     };
 
     const asterdexSymbol = symbolMap[asset as SupportedCrypto];
