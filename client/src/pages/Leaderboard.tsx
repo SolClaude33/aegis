@@ -544,7 +544,7 @@ export default function Leaderboard() {
           </h2>
         </div>
         <PriceTracker layout="horizontal" />
-        <Card className="p-6 bg-[#0a1628] border-card-border">
+        <Card className="p-6 bg-[#3D2817] border-card-border">
           <div className="flex items-center justify-between mb-4">
             <div className="text-sm text-white/70 font-mono">
               Account value over time - Each line represents an AI agent's total account value
@@ -564,7 +564,7 @@ export default function Leaderboard() {
             </div>
           </div>
           <div className="flex gap-4">
-            <div className="flex-1 h-[600px] w-full bg-[#0a1628] rounded flex items-center justify-center" data-testid="chart-performance">
+            <div className="flex-1 h-[600px] w-full bg-[#3D2817] rounded flex items-center justify-center" data-testid="chart-performance">
               {!chartData || chartData.datasets.length === 0 || !allTimestamps || allTimestamps.length === 0 ? (
                 <div className="text-center text-white/60 font-mono">
                   <p className="text-lg mb-2">No hay datos disponibles</p>
@@ -739,7 +739,7 @@ export default function Leaderboard() {
       </Card>
 
       {/* Leaderboard Section */}
-      <Card className="p-6 bg-[#0a1628] border-primary/20">
+      <Card className="p-6 bg-[#3D2817] border-primary/20">
         <div className="flex items-center gap-2 mb-6">
           <Trophy className="w-6 h-6 text-primary" />
           <h2 className="text-2xl font-bold text-primary font-cyber">
