@@ -90,8 +90,8 @@ const AGENT_COLOR_MAP: Record<string, { border: string; fill: string; icon: stri
     icon: "C",
   },
   "DeepSeek-R1": {
-    border: "rgba(0, 150, 255, 1)",      // Blue - like DeepSeek in image
-    fill: "rgba(0, 150, 255, 0.1)",
+    border: "rgba(232, 213, 183, 1)",    // ASTER beige
+    fill: "rgba(232, 213, 183, 0.1)",
     icon: "S",
   },
 };
@@ -361,7 +361,7 @@ export default function Leaderboard() {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    backgroundColor: "#0a1628",
+    backgroundColor: "#3D2817", // ASTER dark brown
     layout: {
       padding: {
         top: 10,
@@ -423,10 +423,10 @@ export default function Leaderboard() {
         },
       },
       tooltip: {
-        backgroundColor: "rgba(10, 10, 26, 0.98)",
-        titleColor: "#00d4ff",
+        backgroundColor: "rgba(61, 40, 23, 0.98)", // ASTER dark brown
+        titleColor: "#E8D5B7", // ASTER beige
         bodyColor: "#FFFFFF",
-        borderColor: "rgba(0, 212, 255, 0.6)",
+        borderColor: "rgba(232, 213, 183, 0.6)", // ASTER beige
         borderWidth: 1,
         padding: 12,
         displayColors: true,
@@ -791,7 +791,7 @@ export default function Leaderboard() {
                     "bg-gray-500/20 border-gray-500/50 text-gray-300", // Rank 2
                     "bg-orange-500/20 border-orange-500/50 text-orange-400", // Rank 3
                     "bg-purple-500/20 border-purple-500/50 text-purple-400", // Rank 4
-                    "bg-blue-500/20 border-blue-500/50 text-blue-400", // Rank 5
+                    "bg-amber-600/20 border-amber-600/50 text-amber-300", // Rank 5 - ASTER beige/brown
                   ];
                   
                   return (
