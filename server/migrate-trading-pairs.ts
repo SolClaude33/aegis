@@ -3,8 +3,8 @@ import { agentStrategies } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
 /**
- * Migration script to update all agent trading pairs to only include BTC, ETH, BNB
- * Removes SOLUSDT, DOGEUSDT, and any other pairs that are not BTCUSDT, ETHUSDT, or BNBUSDT
+ * Migration script to update all agent trading pairs to include BTC, ETH, BNB, ASTER
+ * Removes SOLUSDT, DOGEUSDT, and any other pairs that are not BTCUSDT, ETHUSDT, BNBUSDT, or ASTERUSDT
  */
 export async function migrateTradingPairs() {
   console.log("🔄 Starting trading pairs migration...");
@@ -26,7 +26,7 @@ export async function migrateTradingPairs() {
         allowedPairs.includes(pair)
       );
 
-      // Always ensure all three pairs are present (add missing ones)
+      // Always ensure all four pairs are present (add missing ones)
       const finalPairs = [...new Set([...allowedPairs, ...newPairs])].sort();
 
       // Only update if pairs changed

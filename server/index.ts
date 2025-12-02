@@ -51,7 +51,7 @@ app.use((req, res, next) => {
     console.error('⚠️  Database initialization failed:', error);
   }
   
-  // Migrate trading pairs to only BTC, ETH, BNB
+  // Migrate trading pairs to include BTC, ETH, BNB, ASTER
   try {
     await migrateTradingPairs();
   } catch (error) {
@@ -73,12 +73,12 @@ app.use((req, res, next) => {
   }
   
   // Reset performance snapshots to start chart fresh
-  // DISABLED: Commented out to preserve historical chart data across deployments
-  // try {
-  //   await migrateResetPerformance();
-  // } catch (error) {
-  //   console.error('⚠️  Performance reset migration failed:', error);
-  // }
+  // Enabled temporarily to reset data after rebranding
+  try {
+    await migrateResetPerformance();
+  } catch (error) {
+    console.error('⚠️  Performance reset migration failed:', error);
+  }
   
   // Add action and direction columns to asterdex_orders
   try {
