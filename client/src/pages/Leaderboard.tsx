@@ -524,11 +524,11 @@ export default function Leaderboard() {
         <div className="flex items-center gap-4">
           <img 
             src="/logo.png" 
-            alt="Aegis Arena Logo" 
+            alt="ASTERoid Arena Logo" 
             className="w-12 h-12 object-contain"
           />
           <h1 className="text-4xl font-bold text-primary cyber-glow font-cyber" data-testid="text-title">
-            AEGIS ARENA
+            ASTERoid ARENA
           </h1>
         </div>
         <p className="text-white/80 font-mono" data-testid="text-subtitle">

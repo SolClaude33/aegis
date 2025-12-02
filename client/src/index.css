@@ -2,88 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CYBERPUNK THEME - DARK ONLY */
+/* ASTER THEME - DARK BROWN & BEIGE */
 :root {
-  --button-outline: rgba(0, 212, 255, .25);
-  --badge-outline: rgba(0, 212, 255, .15);
+  --button-outline: rgba(232, 213, 183, .25);
+  --badge-outline: rgba(232, 213, 183, .15);
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: 15; /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0, 212, 255, .08);
-  --elevate-2: rgba(0, 212, 255, .15);
+  --elevate-1: rgba(232, 213, 183, .08);
+  --elevate-2: rgba(232, 213, 183, .15);
 
-  /* Cyberpunk color palette */
-  --background: 225 80% 5%;
+  /* ASTER color palette - Dark brown & beige */
+  --background: 30 40% 12%; /* Dark brown #3D2817 */
 
-  --foreground: 200 100% 90%;
+  --foreground: 35 30% 85%; /* Light beige #E8D5B7 */
 
-  --border: 195 100% 25%;
+  --border: 30 35% 25%; /* Medium brown */
 
-  --card: 225 60% 8%;
+  --card: 30 38% 15%; /* Dark brown card */
 
-  --card-foreground: 200 80% 85%;
+  --card-foreground: 35 25% 80%; /* Beige text */
 
-  --card-border: 195 80% 20%;
+  --card-border: 30 30% 22%; /* Brown border */
 
-  --sidebar: 225 70% 6%;
+  --sidebar: 30 42% 10%; /* Very dark brown */
 
-  --sidebar-foreground: 200 70% 80%;
+  --sidebar-foreground: 35 25% 75%; /* Beige text */
 
-  --sidebar-border: 195 70% 18%;
+  --sidebar-border: 30 30% 18%; /* Brown border */
 
-  --sidebar-primary: 195 100% 50%;
+  --sidebar-primary: 35 40% 70%; /* Beige primary */
 
-  --sidebar-primary-foreground: 225 80% 5%;
+  --sidebar-primary-foreground: 30 40% 12%; /* Dark brown text */
 
-  --sidebar-accent: 195 60% 15%;
+  --sidebar-accent: 30 35% 20%; /* Medium brown */
 
-  --sidebar-accent-foreground: 195 100% 80%;
+  --sidebar-accent-foreground: 35 30% 75%; /* Beige text */
 
-  --sidebar-ring: 195 100% 50%;
+  --sidebar-ring: 35 40% 70%; /* Beige ring */
 
-  --popover: 225 50% 10%;
+  --popover: 30 36% 18%; /* Dark brown popover */
 
-  --popover-foreground: 200 60% 75%;
+  --popover-foreground: 35 25% 78%; /* Beige text */
 
-  --popover-border: 195 60% 22%;
+  --popover-border: 30 30% 25%; /* Brown border */
 
-  --primary: 195 100% 50%;
+  --primary: 35 40% 70%; /* Beige primary */
 
-  --primary-foreground: 225 80% 5%;
+  --primary-foreground: 30 40% 12%; /* Dark brown text */
 
-  --secondary: 225 40% 12%;
+  --secondary: 30 35% 18%; /* Medium brown */
 
-  --secondary-foreground: 200 50% 70%;
+  --secondary-foreground: 35 25% 70%; /* Beige text */
 
-  --muted: 225 30% 10%;
+  --muted: 30 30% 16%; /* Dark brown muted */
 
-  --muted-foreground: 200 60% 85%;
+  --muted-foreground: 35 20% 80%; /* Light beige text */
 
-  --accent: 195 80% 18%;
+  --accent: 30 35% 22%; /* Medium brown accent */
 
-  --accent-foreground: 195 100% 75%;
+  --accent-foreground: 35 30% 75%; /* Beige text */
 
-  --destructive: 0 100% 60%;
+  --destructive: 0 70% 50%; /* Red for errors */
 
-  --destructive-foreground: 0 20% 95%;
+  --destructive-foreground: 0 20% 95%; /* White text */
 
-  --success: 150 100% 50%;
+  --success: 120 50% 55%; /* Green for success */
 
-  --success-foreground: 150 20% 5%;
+  --success-foreground: 120 20% 5%; /* Dark text */
 
-  --warning: 45 100% 50%;
+  --warning: 45 80% 55%; /* Orange for warnings */
 
-  --warning-foreground: 45 20% 5%;
+  --warning-foreground: 45 20% 5%; /* Dark text */
 
-  --input: 225 40% 15%;
-  --ring: 195 100% 50%;
-  --chart-1: 195 100% 50%;
-  --chart-2: 150 100% 50%;
-  --chart-3: 45 100% 50%;
-  --chart-4: 280 100% 60%;
-  --chart-5: 25 100% 50%;
+  --input: 30 35% 20%; /* Medium brown input */
+  --ring: 35 40% 70%; /* Beige ring */
+  --chart-1: 35 40% 70%; /* Beige */
+  --chart-2: 30 50% 55%; /* Medium brown */
+  --chart-3: 35 35% 60%; /* Light brown */
+  --chart-4: 25 45% 65%; /* Warm brown */
+  --chart-5: 40 30% 75%; /* Light beige */
 
   --font-sans: 'Roboto Mono', monospace;
   --font-serif: 'Roboto Mono', monospace;
@@ -133,76 +133,77 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(232, 213, 183, .20);
+  --badge-outline: rgba(232, 213, 183, .10);
 
   --opaque-button-border-intensity: 9;  /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(232, 213, 183, .06);
+  --elevate-2: rgba(232, 213, 183, .12);
 
-  --background: 225 25% 8%;
+  /* ASTER dark theme - darker browns */
+  --background: 30 45% 10%; /* Very dark brown */
 
-  --foreground: 200 20% 90%;
+  --foreground: 35 25% 88%; /* Light beige */
 
-  --border: 225 20% 15%;
+  --border: 30 35% 22%; /* Medium brown */
 
-  --card: 225 22% 10%;
+  --card: 30 40% 14%; /* Dark brown card */
 
-  --card-foreground: 200 18% 88%;
+  --card-foreground: 35 25% 85%; /* Beige text */
 
-  --card-border: 225 18% 16%;
+  --card-border: 30 30% 20%; /* Brown border */
 
-  --sidebar: 225 20% 12%;
+  --sidebar: 30 42% 12%; /* Very dark brown */
 
-  --sidebar-foreground: 200 15% 85%;
+  --sidebar-foreground: 35 25% 82%; /* Beige text */
 
-  --sidebar-border: 225 15% 18%;
+  --sidebar-border: 30 30% 18%; /* Brown border */
 
-  --sidebar-primary: 200 100% 50%;
+  --sidebar-primary: 35 40% 68%; /* Beige primary */
 
-  --sidebar-primary-foreground: 225 25% 8%;
+  --sidebar-primary-foreground: 30 40% 10%; /* Dark brown text */
 
-  --sidebar-accent: 200 25% 18%;
+  --sidebar-accent: 30 35% 18%; /* Medium brown */
 
-  --sidebar-accent-foreground: 200 20% 85%;
+  --sidebar-accent-foreground: 35 25% 80%; /* Beige text */
 
-  --sidebar-ring: 200 100% 50%;
+  --sidebar-ring: 35 40% 68%; /* Beige ring */
 
-  --popover: 225 18% 14%;
+  --popover: 30 38% 16%; /* Dark brown popover */
 
-  --popover-foreground: 200 15% 82%;
+  --popover-foreground: 35 25% 80%; /* Beige text */
 
-  --popover-border: 225 15% 20%;
+  --popover-border: 30 30% 22%; /* Brown border */
 
-  --primary: 200 100% 50%;
+  --primary: 35 40% 68%; /* Beige primary */
 
-  --primary-foreground: 225 25% 8%;
+  --primary-foreground: 30 40% 10%; /* Dark brown text */
 
-  --secondary: 225 15% 16%;
+  --secondary: 30 35% 16%; /* Medium brown */
 
-  --secondary-foreground: 200 15% 80%;
+  --secondary-foreground: 35 25% 78%; /* Beige text */
 
-  --muted: 225 12% 14%;
+  --muted: 30 30% 14%; /* Dark brown muted */
 
-  --muted-foreground: 200 60% 90%;
+  --muted-foreground: 35 20% 85%; /* Light beige text */
 
-  --accent: 200 20% 16%;
+  --accent: 30 35% 20%; /* Medium brown accent */
 
-  --accent-foreground: 200 15% 78%;
+  --accent-foreground: 35 25% 75%; /* Beige text */
 
-  --destructive: 0 85% 35%;
+  --destructive: 0 75% 45%; /* Red for errors */
 
-  --destructive-foreground: 0 20% 95%;
+  --destructive-foreground: 0 20% 95%; /* White text */
 
-  --input: 225 18% 22%;
-  --ring: 200 100% 50%;
-  --chart-1: 200 100% 55%;
-  --chart-2: 150 85% 60%;
-  --chart-3: 45 95% 65%;
-  --chart-4: 280 85% 62%;
-  --chart-5: 25 90% 65%;
+  --input: 30 35% 18%; /* Medium brown input */
+  --ring: 35 40% 68%; /* Beige ring */
+  --chart-1: 35 40% 68%; /* Beige */
+  --chart-2: 30 50% 53%; /* Medium brown */
+  --chart-3: 35 35% 58%; /* Light brown */
+  --chart-4: 25 45% 63%; /* Warm brown */
+  --chart-5: 40 30% 73%; /* Light beige */
 
   --shadow-2xs: 0px 2px 0px 0px hsl(225 25% 5% / 0.20);
   --shadow-xs: 0px 2px 0px 0px hsl(225 25% 5% / 0.25);

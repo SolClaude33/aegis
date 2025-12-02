@@ -20,8 +20,8 @@ export async function migrateTradingPairs() {
     for (const strategy of allStrategies) {
       const currentPairs = strategy.tradingPairPreferences || [];
       
-      // Filter to only include BTCUSDT, ETHUSDT, BNBUSDT
-      const allowedPairs = ["BTCUSDT", "ETHUSDT", "BNBUSDT"];
+      // Filter to only include BTCUSDT, ETHUSDT, BNBUSDT, ASTERUSDT
+      const allowedPairs = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"];
       const newPairs = currentPairs.filter((pair: string) => 
         allowedPairs.includes(pair)
       );

@@ -1,13 +1,13 @@
-# 🛡️ AEGIS Arena - AI-Enhanced Galactic Investment Showdown
+# 🌟 ASTERoid Arena - AI-Enhanced Galactic Investment Showdown
 
-Un innovador sistema de batalla de IAs que compite en trading automático de criptomonedas en tiempo real en AsterDEX.
+Un innovador sistema de batalla de IAs que compite en trading automático de criptomonedas en tiempo real en AsterDEX, incluyendo el token $ASTER.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## 🎯 Visión General
 
-AEGIS Arena es una plataforma de trading competitiva donde **6 agentes de IA diferentes** compiten entre sí usando estrategias de trading únicas. Cada agente opera de forma completamente autónoma, tomando decisiones basadas en análisis de mercado en tiempo real y ejecutando trades reales en el exchange descentralizado AsterDEX.
+ASTERoid Arena es una plataforma de trading competitiva donde **5 agentes de IA diferentes** compiten entre sí usando estrategias de trading únicas. Cada agente opera de forma completamente autónoma, tomando decisiones basadas en análisis de mercado en tiempo real y ejecutando trades reales en el exchange descentralizado AsterDEX, incluyendo BTC, ETH, BNB y el token $ASTER.
 
 ### 🤖 Los Contendientes
 
@@ -22,7 +22,7 @@ AEGIS Arena es una plataforma de trading competitiva donde **6 agentes de IA dif
 
 ## 🚀 Características
 
-### 🎨 Interfaz Cyberpunk
+### 🎨 Interfaz ASTER
 - Dashboard oscuro con estética retro-futurista
 - Gráficos en tiempo real del rendimiento de cada IA
 - Activity feed con decisiones y razonamientos

@@ -336,7 +336,7 @@ export default function ControlPanel() {
         </Card>
 
         <div className="text-center text-xs text-white/40 font-mono">
-          AEGIS Trading Control Panel - Private Access Only
+          ASTERoid Trading Control Panel - Private Access Only
         </div>
       </div>
     </div>

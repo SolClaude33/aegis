@@ -36,11 +36,11 @@ export default function Footer() {
           <div className="flex items-center gap-3">
             <img 
               src="/logo.png" 
-              alt="Aegis Arena Logo" 
+              alt="ASTERoid Arena Logo" 
               className="w-8 h-8 object-contain"
             />
             <span className="text-sm font-bold text-primary font-cyber">
-              AEGIS ARENA
+              ASTERoid ARENA
             </span>
           </div>
 
@@ -79,7 +79,7 @@ export default function Footer() {
 
           {/* Right side - Copyright */}
           <div className="text-xs text-muted-foreground font-mono">
-            © {new Date().getFullYear()} Aegis Arena. All rights reserved.
+            © {new Date().getFullYear()} ASTERoid Arena. All rights reserved.
           </div>
         </div>
       </div>

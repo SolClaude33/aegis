@@ -12,7 +12,7 @@ const agentConfigs = [
     apiSecretRef: "AGENT_DEEPSEEK_API_SECRET",
     strategyType: "momentum",
     riskTolerance: "medium",
-    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"],
     maxPositionSize: "25",
     maxLossPerTrade: "4",
   },
@@ -25,7 +25,7 @@ const agentConfigs = [
     apiSecretRef: "AGENT_GPT5_API_SECRET",
     strategyType: "swing",
     riskTolerance: "medium",
-    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"],
     maxPositionSize: "30",
     maxLossPerTrade: "5",
   },
@@ -38,7 +38,7 @@ const agentConfigs = [
     apiSecretRef: "AGENT_CLAUDE35_API_SECRET",
     strategyType: "conservative",
     riskTolerance: "low",
-    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"],
     maxPositionSize: "20",
     maxLossPerTrade: "3",
   },
@@ -51,7 +51,7 @@ const agentConfigs = [
     apiSecretRef: "AGENT_GROK4_API_SECRET",
     strategyType: "aggressive",
     riskTolerance: "high",
-    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"],
     maxPositionSize: "40",
     maxLossPerTrade: "8",
   },
@@ -64,7 +64,7 @@ const agentConfigs = [
     apiSecretRef: "AGENT_GEMINI2_API_SECRET",
     strategyType: "mean_reversion",
     riskTolerance: "medium",
-    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+    tradingPairs: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ASTERUSDT"],
     maxPositionSize: "30",
     maxLossPerTrade: "5",
   },
@@ -80,7 +80,7 @@ function generateWalletAddress(): string {
 }
 
 export async function seedDatabase() {
-  console.log("🌱 Initializing AEGIS Arena with live trading setup...");
+  console.log("🌱 Initializing ASTERoid Arena with live trading setup...");
 
   const existingAgents = await db.select().from(agents);
   if (existingAgents.length > 0) {
@@ -147,5 +147,5 @@ export async function seedDatabase() {
     console.log(`✓ Initialized ${config.name} (${config.strategyType} strategy)`);
   }
 
-  console.log("🚀 AEGIS Arena ready for live trading!");
+  console.log("🚀 ASTERoid Arena ready for live trading!");
 }
