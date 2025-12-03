@@ -35,7 +35,7 @@ export default function Footer() {
           {/* Left side - Logo/Brand */}
           <div className="flex items-center gap-3">
             <img 
-              src="/logo.png" 
+              src="/asterlogo.png" 
               alt="ASTERoid Arena Logo" 
               className="w-8 h-8 object-contain"
             />

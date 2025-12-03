@@ -523,7 +523,7 @@ export default function Leaderboard() {
       <div className="space-y-2">
         <div className="flex items-center gap-4">
           <img 
-            src="/logo.png" 
+            src="/asterlogo.png" 
             alt="ASTERoid Arena Logo" 
             className="w-12 h-12 object-contain"
           />
