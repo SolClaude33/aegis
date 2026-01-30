@@ -3,11 +3,13 @@ import { agents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 /**
- * Migration script to update all agents' initial capital to $100
- * and reset PnL to 0 based on current AsterDex balance
+ * Migration script to update all agents' initial capital
+ * (defaults to $100.00, configurable via INITIAL_CAPITAL)
+ * and reset PnL to 0.
  */
 export async function migrateInitialCapital() {
-  console.log("🔄 Starting initial capital migration to $100...");
+  const initialCapital = (process.env.INITIAL_CAPITAL || "100.00").trim();
+  console.log(`🔄 Starting initial capital migration to $${initialCapital}...`);
 
   try {
     const allAgents = await db.select().from(agents);
@@ -16,19 +18,19 @@ export async function migrateInitialCapital() {
     let updatedCount = 0;
 
     for (const agent of allAgents) {
-      // Update initial capital to $100
-      // Reset PnL to 0 (will be recalculated on next balance update from AsterDex)
+      // Update initial capital and reset PnL to 0.
       await db
         .update(agents)
         .set({
-          initialCapital: "100.00",
+          initialCapital,
+          currentCapital: initialCapital,
           totalPnL: "0.00",
           totalPnLPercentage: "0.00",
           updatedAt: new Date(),
         })
         .where(eq(agents.id, agent.id));
 
-      console.log(`✓ Updated ${agent.name}: initialCapital → $100.00, PnL → $0.00`);
+      console.log(`✓ Updated ${agent.name}: initialCapital → $${initialCapital}, PnL → $0.00`);
       updatedCount++;
     }
 

@@ -88,7 +88,7 @@ export async function seedDatabase() {
     return;
   }
 
-  const initialCapital = "100.00";
+  const initialCapital = (process.env.INITIAL_CAPITAL || "100.00").trim();
   console.log(`💰 Each agent starts with $${initialCapital} in initial capital`);
 
   for (const config of agentConfigs) {
