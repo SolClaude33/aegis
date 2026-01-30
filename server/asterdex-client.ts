@@ -1,8 +1,8 @@
 import crypto from "crypto";
 
 interface AsterDexConfig {
-  apiKey: string;
-  apiSecret: string;
+  apiKey?: string;
+  apiSecret?: string;
   baseURL: string;
 }
 
@@ -44,8 +44,9 @@ export class AsterDexClient {
   private baseURL: string;
 
   constructor(config: AsterDexConfig) {
-    this.apiKey = config.apiKey;
-    this.apiSecret = config.apiSecret;
+    // Allow unauthenticated clients for public market-data endpoints
+    this.apiKey = config.apiKey || "";
+    this.apiSecret = config.apiSecret || "";
     this.baseURL = config.baseURL || "https://fapi.asterdex.com";
   }
 
@@ -68,24 +69,36 @@ export class AsterDexClient {
     params: Record<string, any> = {},
     requiresAuth: boolean = true
   ): Promise<any> {
-    const timestamp = Date.now();
-    const queryParams = {
-      ...params,
-      recvWindow: 5000,
-      timestamp,
-    };
-
-    const queryString = this.buildQueryString(queryParams);
-    const signature = this.generateSignature(queryString);
-    const fullQueryString = `${queryString}&signature=${signature}`;
-
-    const url = `${this.baseURL}${endpoint}?${fullQueryString}`;
+    // Public endpoints should NOT require signatures/timestamps.
+    // Authenticated endpoints require API key + signature.
+    let url = `${this.baseURL}${endpoint}`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
     if (requiresAuth) {
+      if (!this.apiKey || !this.apiSecret) {
+        throw new Error("AsterDex API credentials not configured for authenticated request");
+      }
+
+      const timestamp = Date.now();
+      const queryParams = {
+        ...params,
+        recvWindow: 5000,
+        timestamp,
+      };
+
+      const queryString = this.buildQueryString(queryParams);
+      const signature = this.generateSignature(queryString);
+      const fullQueryString = `${queryString}&signature=${signature}`;
+
+      url = `${url}?${fullQueryString}`;
       headers["X-MBX-APIKEY"] = this.apiKey;
+    } else {
+      const queryString = this.buildQueryString(params);
+      if (queryString) {
+        url = `${url}?${queryString}`;
+      }
     }
 
     try {

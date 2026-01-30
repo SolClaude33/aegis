@@ -73,11 +73,13 @@ app.use((req, res, next) => {
   }
   
   // Reset performance snapshots to start chart fresh
-  // Enabled temporarily to reset data after rebranding
-  try {
-    await migrateResetPerformance();
-  } catch (error) {
-    console.error('⚠️  Performance reset migration failed:', error);
+  // IMPORTANT: Only run when explicitly enabled (otherwise it will wipe charts on every deploy)
+  if (process.env.RESET_PERFORMANCE_SNAPSHOTS === "true") {
+    try {
+      await migrateResetPerformance();
+    } catch (error) {
+      console.error("⚠️  Performance reset migration failed:", error);
+    }
   }
   
   // Add action and direction columns to asterdex_orders

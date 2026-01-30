@@ -1,10 +1,10 @@
 import { db } from "./db";
-import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots, positions } from "@shared/schema";
+import { agents, asterdexOrders, agentStrategies, activityEvents, performanceSnapshots, positions, trades } from "@shared/schema";
 import { AsterDexClient } from "./asterdex-client";
 import { type MarketData } from "./trading-strategies";
 import { getLLMClientForAgent, type LLMAnalysisContext, type SupportedCrypto, SUPPORTED_CRYPTOS } from "./llm-clients";
 import { tradingValidator, type ValidationContext } from "./trading-validators";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export class TradingEngine {
   private isRunning: boolean = false;
@@ -15,6 +15,8 @@ export class TradingEngine {
   private priceMonitorInterval: NodeJS.Timeout | null = null;
   private pnlMonitorInterval: NodeJS.Timeout | null = null;
   private agentClients: Map<string, AsterDexClient> = new Map();
+  private marketDataClient: AsterDexClient | null = null;
+  private isSimulatedTrading: boolean = false;
   // Store last known prices for BTC, ETH, BNB to detect significant changes
   private lastPrices: Map<string, { price: number; timestamp: number }> = new Map();
   // Store last known PnL for each position to detect significant changes
@@ -24,6 +26,13 @@ export class TradingEngine {
 
   constructor() {
     // Clients are now created per-agent on demand
+    this.isSimulatedTrading = process.env.SIMULATED_TRADING === "true";
+    console.log(
+      this.isSimulatedTrading
+        ? "🧪 SIMULATED_TRADING=true - Paper trading enabled (no real orders will be sent)"
+        : "🟢 SIMULATED_TRADING=false - Real trading mode (orders sent to AsterDex when credentials exist)"
+    );
+
     // Get Alpha Vantage API key from environment
     this.alphaVantageApiKey = process.env.ALPHA_VANTAGE_API_KEY || null;
     if (this.alphaVantageApiKey) {
@@ -31,6 +40,16 @@ export class TradingEngine {
     } else {
       console.log("⚠️  Alpha Vantage API key not found - Using basic indicators only");
     }
+  }
+
+  private getMarketDataClient(): AsterDexClient {
+    if (!this.marketDataClient) {
+      // Public client (no API keys) – only used for market-data endpoints
+      this.marketDataClient = new AsterDexClient({
+        baseURL: "https://fapi.asterdex.com",
+      });
+    }
+    return this.marketDataClient;
   }
 
   async start() {
@@ -272,6 +291,12 @@ export class TradingEngine {
   }
 
   private getAgentClient(agent: any): AsterDexClient | null {
+    // In simulated mode, never create per-agent authenticated clients.
+    // This prevents any real orders from being sent.
+    if (this.isSimulatedTrading) {
+      return null;
+    }
+
     if (!this.agentClients.has(agent.id)) {
       const apiKey = process.env[agent.apiKeyRef];
       const apiSecret = process.env[agent.apiSecretRef];
@@ -331,17 +356,21 @@ export class TradingEngine {
         }
       }
 
-      // Sync all positions from AsterDex to database
-      for (const agent of allAgents) {
-        try {
-          await this.syncPositionsFromAsterDex(agent.id, marketData);
-        } catch (error) {
-          console.error(`Error syncing positions for ${agent.name}:`, error);
+      if (this.isSimulatedTrading) {
+        // Simulated mode: mark-to-market positions using market prices, then update balances from DB
+        await this.syncSimulatedPositionsWithMarket(marketData);
+        await this.updateAgentBalances();
+      } else {
+        // Real mode: sync positions from AsterDex, then update balances (includes unrealized PnL)
+        for (const agent of allAgents) {
+          try {
+            await this.syncPositionsFromAsterDex(agent.id, marketData);
+          } catch (error) {
+            console.error(`Error syncing positions for ${agent.name}:`, error);
+          }
         }
+        await this.updateAgentBalances();
       }
-
-      // Update agent balances from actual trades (includes unrealized PnL)
-      await this.updateAgentBalances();
 
       console.log("✅ Trading Cycle Complete");
     } catch (error) {
@@ -360,15 +389,14 @@ export class TradingEngine {
 
     const marketData: (MarketData & { symbol: SupportedCrypto })[] = [];
 
-    // If no AsterDex client, use CryptoCompare as fallback
-    if (!client) {
-      return this.fetchMarketDataFromCryptoCompare();
-    }
+    // Prefer AsterDex public market-data endpoints even in simulated mode.
+    // If we don't have an authenticated client, use a public client.
+    const marketClient = client ?? this.getMarketDataClient();
 
     for (const crypto of SUPPORTED_CRYPTOS) {
       try {
         const asterdexSymbol = symbolMap[crypto];
-        const stats = await client.get24hrStats(asterdexSymbol);
+        const stats = await marketClient.get24hrStats(asterdexSymbol);
         
         const currentPrice = parseFloat(stats.lastPrice);
         const high24h = parseFloat(stats.highPrice);
@@ -390,6 +418,11 @@ export class TradingEngine {
       } catch (error) {
         console.error(`Failed to fetch data for ${crypto}:`, error);
       }
+    }
+
+    // If AsterDex failed entirely, fallback to CryptoCompare
+    if (marketData.length === 0) {
+      return this.fetchMarketDataFromCryptoCompare();
     }
 
     return marketData;
@@ -937,7 +970,13 @@ export class TradingEngine {
         return;
       }
 
-      // Sync positions for each agent
+      if (this.isSimulatedTrading) {
+        // Simulated mode: just mark-to-market DB positions using market prices
+        await this.syncSimulatedPositionsWithMarket(marketData);
+        return;
+      }
+
+      // Real mode: sync positions for each agent from AsterDex
       for (const agent of allAgents) {
         try {
           await this.syncPositionsFromAsterDex(agent.id, marketData);
@@ -947,6 +986,52 @@ export class TradingEngine {
       }
     } catch (error) {
       console.error("Error syncing all positions:", error);
+    }
+  }
+
+  /**
+   * Simulated mode: update DB positions with latest market prices and unrealized PnL.
+   * Prices come from AsterDex (marketData).
+   */
+  private async syncSimulatedPositionsWithMarket(
+    marketData: (MarketData & { symbol: SupportedCrypto })[]
+  ) {
+    try {
+      const dbPositions = await db.select().from(positions);
+      if (dbPositions.length === 0) return;
+
+      const priceBySymbol = new Map<SupportedCrypto, number>(
+        marketData.map((m) => [m.symbol as SupportedCrypto, m.currentPrice])
+      );
+
+      for (const pos of dbPositions) {
+        const asset = pos.asset as SupportedCrypto;
+        const currentPrice = priceBySymbol.get(asset);
+        if (!currentPrice || currentPrice <= 0) continue;
+
+        const entryPrice = parseFloat(pos.entryPrice);
+        const size = parseFloat(pos.size);
+        if (!entryPrice || !size) continue;
+
+        const isLong = String(pos.side).toUpperCase() === "LONG";
+        const pnl = isLong
+          ? (currentPrice - entryPrice) * size
+          : (entryPrice - currentPrice) * size;
+
+        const notional = entryPrice * size;
+        const pnlPct = notional > 0 ? (pnl / notional) * 100 : 0;
+
+        await db
+          .update(positions)
+          .set({
+            currentPrice: currentPrice.toFixed(2),
+            unrealizedPnL: pnl.toFixed(2),
+            unrealizedPnLPercentage: pnlPct.toFixed(2),
+          })
+          .where(eq(positions.id, pos.id));
+      }
+    } catch (error) {
+      console.error("Error syncing simulated positions:", error);
     }
   }
 
@@ -1573,9 +1658,27 @@ export class TradingEngine {
         .returning();
 
     try {
-      // Get agent's individual AsterDex client
+      // Simulated trading mode: do NOT send orders to AsterDex.
+      if (this.isSimulatedTrading) {
+        await this.simulateLLMOrderFill({
+          agent,
+          decision,
+          asset,
+          asterdexSymbol,
+          asterdexSide,
+          normalizedQuantity,
+          marketPrice,
+          isOpeningPosition,
+          isOpenAction,
+          isCloseAction,
+          orderId: order.id,
+        });
+        return;
+      }
+
+      // Real mode: Get agent's individual AsterDex client
       const agentClient = this.getAgentClient(agent);
-      
+
       if (!agentClient) {
         console.log(`⚠️  ${agent.name} cannot execute trade - no AsterDex credentials configured`);
         await db
@@ -1685,6 +1788,178 @@ export class TradingEngine {
         asset,
         strategy: decision.strategy,
       });
+    }
+  }
+
+  private async simulateLLMOrderFill(args: {
+    agent: any;
+    decision: any;
+    asset: SupportedCrypto;
+    asterdexSymbol: string;
+    asterdexSide: "BUY" | "SELL";
+    normalizedQuantity: number;
+    marketPrice: number;
+    isOpeningPosition: boolean;
+    isOpenAction: boolean;
+    isCloseAction: boolean;
+    orderId: string;
+  }) {
+    const {
+      agent,
+      decision,
+      asset,
+      asterdexSymbol,
+      asterdexSide,
+      normalizedQuantity,
+      marketPrice,
+      isOpeningPosition,
+      isOpenAction,
+      isCloseAction,
+      orderId,
+    } = args;
+
+    const simulatedOrderId = `SIM-${Date.now()}-${orderId}`;
+
+    // Mark order as filled immediately at current market price
+    await db
+      .update(asterdexOrders)
+      .set({
+        asterdexOrderId: simulatedOrderId,
+        status: "FILLED",
+        filledQuantity: normalizedQuantity.toString(),
+        avgFilledPrice: marketPrice.toFixed(2),
+        txHash: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(asterdexOrders.id, orderId));
+
+    if (isOpenAction) {
+      // Reject if already has a position in this asset
+      const existing = await db
+        .select()
+        .from(positions)
+        .where(and(eq(positions.agentId, agent.id), eq(positions.asset, asset)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db.insert(activityEvents).values({
+          agentId: agent.id,
+          eventType: "DECISION_REJECTED",
+          message: `Decision rejected: Already have open ${existing[0].side} position in ${asset}. (simulated)`,
+          asset,
+          strategy: decision.strategy,
+        });
+        return;
+      }
+
+      const side = decision.direction === "SHORT" ? "SHORT" : "LONG";
+      const leverage = 3;
+
+      await db.insert(positions).values({
+        agentId: agent.id,
+        asset,
+        side,
+        size: normalizedQuantity.toFixed(8),
+        entryPrice: marketPrice.toFixed(2),
+        currentPrice: marketPrice.toFixed(2),
+        leverage,
+        unrealizedPnL: "0.00",
+        unrealizedPnLPercentage: "0.00",
+        strategy: decision.strategy || null,
+        llmReasoning: decision.reasoning || null,
+        llmConfidence: decision.confidence?.toString?.() ?? null,
+        openTxHash: simulatedOrderId,
+      });
+
+      await db.insert(activityEvents).values({
+        agentId: agent.id,
+        eventType: "POSITION_OPENED",
+        message: `OPEN ${side} ${normalizedQuantity.toFixed(6)} ${asset} @ $${marketPrice.toFixed(2)} (simulated) - ${decision.reasoning}`,
+        asset,
+        strategy: decision.strategy,
+      });
+
+      await this.createSnapshotForAgent(agent.id);
+      return;
+    }
+
+    if (isCloseAction) {
+      const existing = await db
+        .select()
+        .from(positions)
+        .where(and(eq(positions.agentId, agent.id), eq(positions.asset, asset)))
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(activityEvents).values({
+          agentId: agent.id,
+          eventType: "DECISION_REJECTED",
+          message: `Decision rejected: Cannot CLOSE - no open position in ${asset}. (simulated)`,
+          asset,
+          strategy: decision.strategy,
+        });
+        return;
+      }
+
+      const pos = existing[0];
+      const entryPrice = parseFloat(pos.entryPrice);
+      const size = parseFloat(pos.size);
+      const side = String(pos.side).toUpperCase() === "SHORT" ? "SHORT" : "LONG";
+
+      const realizedPnL =
+        side === "LONG" ? (marketPrice - entryPrice) * size : (entryPrice - marketPrice) * size;
+      const notional = entryPrice * size;
+      const realizedPct = notional > 0 ? (realizedPnL / notional) * 100 : 0;
+
+      // Record trade
+      const durationSec = Math.max(
+        1,
+        Math.floor((Date.now() - new Date(pos.openedAt).getTime()) / 1000)
+      );
+
+      await db.insert(trades).values({
+        agentId: agent.id,
+        asset,
+        side,
+        size: size.toFixed(8),
+        entryPrice: entryPrice.toFixed(2),
+        exitPrice: marketPrice.toFixed(2),
+        leverage: pos.leverage || 3,
+        realizedPnL: realizedPnL.toFixed(2),
+        realizedPnLPercentage: realizedPct.toFixed(2),
+        duration: durationSec,
+        strategy: decision.strategy || pos.strategy || null,
+        llmReasoning: decision.reasoning || null,
+        llmConfidence: decision.confidence?.toString?.() ?? null,
+        openTxHash: pos.openTxHash,
+        closeTxHash: simulatedOrderId,
+        openedAt: pos.openedAt,
+      });
+
+      // Remove open position
+      await db.delete(positions).where(eq(positions.id, pos.id));
+
+      // Update agent equity baseline: add realized PnL to stored currentCapital
+      const currentCapital = parseFloat(agent.currentCapital);
+      const newCapital = currentCapital + realizedPnL;
+      await db
+        .update(agents)
+        .set({
+          currentCapital: newCapital.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(agents.id, agent.id));
+
+      await db.insert(activityEvents).values({
+        agentId: agent.id,
+        eventType: "POSITION_CLOSED",
+        message: `CLOSE ${asset} @ $${marketPrice.toFixed(2)} (simulated). Realized PnL: $${realizedPnL.toFixed(2)} (${realizedPct.toFixed(2)}%)`,
+        asset,
+        strategy: decision.strategy,
+      });
+
+      await this.createSnapshotForAgent(agent.id);
+      return;
     }
   }
 
@@ -1830,6 +2105,11 @@ export class TradingEngine {
   }
 
   async updateAgentBalances() {
+    if (this.isSimulatedTrading) {
+      await this.updateAgentBalancesSimulated();
+      return;
+    }
+
     try {
       const allAgents = await db.select().from(agents);
 
@@ -2020,6 +2300,51 @@ export class TradingEngine {
     }
   }
 
+  private async updateAgentBalancesSimulated() {
+    try {
+      // Ensure positions have up-to-date prices before computing equity
+      const marketData = await this.fetchMarketData(null);
+      if (marketData.length > 0) {
+        await this.syncSimulatedPositionsWithMarket(marketData);
+      }
+
+      const allAgents = await db.select().from(agents).where(eq(agents.isActive, true));
+      for (const agent of allAgents) {
+        const initialCapital = parseFloat(agent.initialCapital);
+
+        const agentPositions = await db
+          .select()
+          .from(positions)
+          .where(eq(positions.agentId, agent.id));
+        const unrealizedPnL = agentPositions.reduce((sum, p) => sum + parseFloat(p.unrealizedPnL || "0"), 0);
+
+        const agentTrades = await db
+          .select()
+          .from(trades)
+          .where(eq(trades.agentId, agent.id));
+        const realizedPnL = agentTrades.reduce((sum, t) => sum + parseFloat(t.realizedPnL || "0"), 0);
+
+        const equity = initialCapital + realizedPnL + unrealizedPnL;
+        const pnl = realizedPnL + unrealizedPnL;
+        const pnlPercentage = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
+
+        await db
+          .update(agents)
+          .set({
+            currentCapital: equity.toFixed(2),
+            totalPnL: pnl.toFixed(2),
+            totalPnLPercentage: pnlPercentage.toFixed(2),
+            updatedAt: new Date(),
+          })
+          .where(eq(agents.id, agent.id));
+
+        await this.createSnapshotForAgent(agent.id);
+      }
+    } catch (error) {
+      console.error("Error updating simulated balances:", error);
+    }
+  }
+
   // Helper method to create snapshot for a specific agent
   private async createSnapshotForAgent(agentId: string) {
     try {
@@ -2031,6 +2356,24 @@ export class TradingEngine {
       const initialCapital = parseFloat(agentData.initialCapital);
       let currentBalance = parseFloat(agentData.currentCapital);
       let balanceSource = "database"; // Track where balance comes from
+
+      // Simulated mode: compute equity purely from DB (initial + realized + unrealized)
+      if (this.isSimulatedTrading) {
+        const agentPositions = await db
+          .select()
+          .from(positions)
+          .where(eq(positions.agentId, agentId));
+        const unrealizedPnL = agentPositions.reduce((sum, p) => sum + parseFloat(p.unrealizedPnL || "0"), 0);
+
+        const agentTrades = await db
+          .select()
+          .from(trades)
+          .where(eq(trades.agentId, agentId));
+        const realizedPnL = agentTrades.reduce((sum, t) => sum + parseFloat(t.realizedPnL || "0"), 0);
+
+        currentBalance = initialCapital + realizedPnL + unrealizedPnL;
+        balanceSource = "simulated_db";
+      }
       
       // Get real balance from AsterDex if available
       if (agentClient) {
@@ -2068,7 +2411,7 @@ export class TradingEngine {
               try {
                 const positions = await agentClient.getPositions();
                 // Get market data for price calculations
-                const marketData = await this.fetchMarketData();
+                const marketData = await this.fetchMarketData(agentClient);
                 
                 for (const pos of positions) {
                   const positionAmt = parseFloat(pos.positionAmt || pos.position || "0");
@@ -2146,7 +2489,13 @@ export class TradingEngine {
 
       // Get open positions count
       let openPositionsCount = 0;
-      if (agentClient) {
+      if (this.isSimulatedTrading) {
+        const open = await db
+          .select()
+          .from(positions)
+          .where(eq(positions.agentId, agentId));
+        openPositionsCount = open.length;
+      } else if (agentClient) {
         try {
           const positions = await agentClient.getPositions();
           openPositionsCount = positions.filter((pos: any) => {
